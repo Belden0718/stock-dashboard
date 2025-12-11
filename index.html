@@ -177,7 +177,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
 <script>
-    // ⚠️ 使用您提供的 Config
+    // ⚠️ Firebase 設定
     const firebaseConfig = {
       apiKey: "AIzaSyDqE-QYqXgZ1xZ_oKIIGIypDzB4iKIvwCk",
       authDomain: "stock-dashboard-a1b1c.firebaseapp.com",
@@ -215,7 +215,7 @@
     // 初始化日期
     document.getElementById('tradeDate').valueAsDate = new Date();
 
-    // 格式化函數 (優化：手機版移除小數點後多餘的0以節省空間)
+    // 格式化函數
     const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0, maximumFractionDigits:0 }).format(n);
     const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
     const fmtRound = (n) => Math.round(n);
@@ -520,7 +520,11 @@
 
         document.getElementById('totalMarketValue').innerText = fmtMoney(fmtRound(gMkt));
         document.getElementById('totalMarketValue').className = gMkt >= 0 ? 'text-up' : 'text-down';
+        
+        // 修正這裡：增加總成本的顏色判斷
         document.getElementById('totalCost').innerText = fmtMoney(fmtRound(gCost));
+        document.getElementById('totalCost').className = gCost >= 0 ? 'text-up' : 'text-down';
+
         document.getElementById('totalUnrealizedPL').innerText = fmtMoney(fmtRound(gUnrealized));
         document.getElementById('totalUnrealizedPL').className = gUnrealized >= 0 ? 'text-up' : 'text-down';
         document.getElementById('totalUnrealizedRate').innerText = (gCost ? (gUnrealized/gCost)*100 : 0).toFixed(2) + '%';
