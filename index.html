@@ -413,13 +413,12 @@
                         <span class="price-source">${pObj.src} ${pObj.time||''}</span>
                     </td>
                     <td>${fmtMoney(mkt)}</td>
-                    <td class="${unrlCls}">${fmtMoney(fmtRound(unrl))}</td>
-                    <td class="${rateCls}">${rate.toFixed(2)}%</td>
-                    <td class="${divCls}">${fmtMoney(fmtRound(divId))}</td>
-                    <td class="${divPlusCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
+                    <td style="color: ${unrl >= 0 ? '#dc3545' : '#198754'}; font-weight: bold;">${fmtMoney(fmtRound(unrl))}</td>
+                    <td style="color: ${rate >= 0 ? '#dc3545' : '#198754'}; font-weight: bold;">${rate.toFixed(2)}%</td>
+                    <td style="color: ${divId >= 0 ? '#dc3545' : '#198754'}; font-weight: bold;">${fmtMoney(fmtRound(divId))}</td>
+                    <td style="color: ${divPlusUnrl >= 0 ? '#dc3545' : '#198754'}; font-weight: bold;">${fmtMoney(fmtRound(divPlusUnrl))}</td>
                 </tr>`;
             tbody.innerHTML += tr;
-            gMkt+=mkt; gCost+=h.cost; gUnrealized+=unrl;
         }
 
         const hBody = document.getElementById('historyTable');
