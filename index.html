@@ -9,8 +9,8 @@
         body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
         .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; margin-bottom: 20px; }
         .stat-card { text-align: center; padding: 20px; }
-        .text-up { color: #dc3545; font-weight: bold; }
-        .text-down { color: #198754; font-weight: bold; }
+        .text-up { color: #dc3545 !important; font-weight: bold !important; }
+        .text-down { color: #198754 !important; font-weight: bold !important; }
         .loading { opacity: 0.6; pointer-events: none; }
         .price-source { font-size: 0.75rem; color: #6c757d; display: block;}
         .update-status { font-size: 0.85rem; color: #6c757d; margin-left: 10px; }
@@ -397,6 +397,12 @@
             let divId = symbolDividends[s] || 0;
             let divPlusUnrl = divId + unrl;
             
+            // 累加到總計
+            gMkt += mkt;
+            gCost += h.cost;
+            gUnrealized += unrl;
+
+            // 決定顏色類別
             let unrlCls = unrl >= 0 ? 'text-up' : 'text-down';
             let rateCls = rate >= 0 ? 'text-up' : 'text-down';
             let divCls = divId >= 0 ? 'text-up' : 'text-down';
@@ -413,10 +419,10 @@
                         <span class="price-source">${pObj.src} ${pObj.time||''}</span>
                     </td>
                     <td>${fmtMoney(mkt)}</td>
-                    <td style="color: ${unrl >= 0 ? '#dc3545' : '#198754'}; font-weight: bold;">${fmtMoney(fmtRound(unrl))}</td>
-                    <td style="color: ${rate >= 0 ? '#dc3545' : '#198754'}; font-weight: bold;">${rate.toFixed(2)}%</td>
-                    <td style="color: ${divId >= 0 ? '#dc3545' : '#198754'}; font-weight: bold;">${fmtMoney(fmtRound(divId))}</td>
-                    <td style="color: ${divPlusUnrl >= 0 ? '#dc3545' : '#198754'}; font-weight: bold;">${fmtMoney(fmtRound(divPlusUnrl))}</td>
+                    <td class="${unrlCls}">${fmtMoney(fmtRound(unrl))}</td>
+                    <td class="${rateCls}">${rate.toFixed(2)}%</td>
+                    <td class="${divCls}">${fmtMoney(fmtRound(divId))}</td>
+                    <td class="${divPlusCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
                 </tr>`;
             tbody.innerHTML += tr;
         }
