@@ -397,8 +397,10 @@
             let divId = symbolDividends[s] || 0;
             let divPlusUnrl = divId + unrl;
             
-            let cls = unrl >= 0 ? 'text-up' : 'text-down';
-            let divCls = divPlusUnrl >= 0 ? 'text-up' : 'text-down';
+            let unrlCls = unrl >= 0 ? 'text-up' : 'text-down';
+            let rateCls = rate >= 0 ? 'text-up' : 'text-down';
+            let divCls = divId >= 0 ? 'text-up' : 'text-down';
+            let divPlusCls = divPlusUnrl >= 0 ? 'text-up' : 'text-down';
 
             let tr = `
                 <tr>
@@ -411,10 +413,10 @@
                         <span class="price-source">${pObj.src} ${pObj.time||''}</span>
                     </td>
                     <td>${fmtMoney(mkt)}</td>
-                    <td class="${cls}">${fmtMoney(fmtRound(unrl))}</td>
-                    <td class="${cls}">${rate.toFixed(2)}%</td>
-                    <td class="text-up">${fmtMoney(fmtRound(divId))}</td>
-                    <td class="${divCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
+                    <td class="${unrlCls}">${fmtMoney(fmtRound(unrl))}</td>
+                    <td class="${rateCls}">${rate.toFixed(2)}%</td>
+                    <td class="${divCls}">${fmtMoney(fmtRound(divId))}</td>
+                    <td class="${divPlusCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
                 </tr>`;
             tbody.innerHTML += tr;
             gMkt+=mkt; gCost+=h.cost; gUnrealized+=unrl;
