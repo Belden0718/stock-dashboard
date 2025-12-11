@@ -2,33 +2,31 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>個人股票損益管理 (雲端版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人股票損益管理 (Firebase RWD版)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
         .card { box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: none; margin-bottom: 1.5rem; }
         .stat-card { text-align: center; padding: 15px; height: 100%; }
         
-        /* 文字顏色與樣式 */
+        /* 文字顏色與樣式 (使用 !important 強制覆蓋) */
         .text-up { color: #dc3545 !important; font-weight: bold !important; }
         .text-down { color: #198754 !important; font-weight: bold !important; }
         .price-source { font-size: 0.7rem; color: #999; display: block; margin-top: 2px;}
         
-        /* 狀態標籤 */
         .status-bar { font-size: 0.8rem; color: #6c757d; margin-top: 5px; }
         .firebase-status { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;}
         .firebase-connected { background-color: #d1e7dd; color: #0f5132; }
         .firebase-disconnected { background-color: #f8d7da; color: #842029; }
         
-        /* 按鈕讀取動畫 */
         .loading { opacity: 0.7; pointer-events: none; }
 
-        /* 手機版字體優化 */
         @media (max-width: 576px) {
             h2 { font-size: 1.5rem; }
             .stat-card h3 { font-size: 1.5rem; }
             .stat-card h5 { font-size: 0.9rem; }
-            .btn { width: 100%; margin-top: 5px; } /* 手機版按鈕滿寬 */
+            .btn { width: 100%; margin-top: 5px; }
             .header-controls { flex-direction: column; align-items: flex-start; }
             .header-controls > div { width: 100%; margin-bottom: 10px; }
         }
@@ -39,7 +37,7 @@
 <div class="container py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <div class="mb-2">
-            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(雲端版)</small></h2>
+            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(Firebase v3)</small></h2>
             <div class="status-bar">
                 <span id="autoUpdateStatus">更新中...</span> | 
                 <span class="firebase-status" id="firebaseStatus">連線中...</span>
@@ -151,6 +149,26 @@
     </div>
 
     <div class="card">
+        <div class="card-header">💸 平倉明細 (已實現損益)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
+                    <thead class="table-light">
+                        <tr>
+                            <th>股票</th>
+                            <th>股數</th>
+                            <th>總成本</th>
+                            <th>總收入</th>
+                            <th>賣出損益</th>
+                            <th>報酬率 %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="closedPositionsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="card">
         <div class="card-header">📝 歷史紀錄</div>
         <div class="card-body p-0">
             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -199,7 +217,7 @@
     let priceCache = {};
     const PRICE_UPDATE_INTERVAL = 30000;
 
-    // 監聽 Firebase 連線狀態
+    // 監聽 Firebase 連線狀態 (略)
     const connectedRef = database.ref('.info/connected');
     connectedRef.on('value', (snap) => {
         const statusEl = document.getElementById('firebaseStatus');
@@ -220,13 +238,13 @@
     const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
     const fmtRound = (n) => Math.round(n);
 
-    // 計算手續費
+    // 計算手續費 (略)
     function calculateFee(amount) {
         let fee = Math.round(amount * 0.001425);
         return Math.max(fee, 20);
     }
 
-    // 監聽價格和股數變化
+    // 監聽價格和股數變化 (略)
     document.getElementById('price').addEventListener('change', updateFeeDisplay);
     document.getElementById('price').addEventListener('keyup', updateFeeDisplay);
     document.getElementById('qty').addEventListener('change', updateFeeDisplay);
@@ -309,7 +327,6 @@
             fee 
         };
 
-        // 新增到 Firebase
         transactionsRef.push(newTransaction);
         
         this.reset();
@@ -324,7 +341,7 @@
         }
     }
 
-    // 從 Firebase 載入資料
+    // 從 Firebase 載入資料 (略)
     function loadDataFromFirebase() {
         transactionsRef.on('value', (snapshot) => {
             transactions = [];
@@ -345,8 +362,10 @@
         });
     }
 
-    function calculateHoldings() {
+    // 核心計算邏輯已更新，用於區分持倉和平倉損益
+    function calculateHoldingsAndClosed() {
         let holdings = {};
+        let closedPositions = {};
         let totalRealized = 0;
         let totalDividends = 0;
         let symbolDividends = {};
@@ -361,30 +380,42 @@
                 h.qty += t.qty;
                 h.cost += (t.price * t.qty) + t.fee;
             } else if (t.type === 'sell') {
-                let avg = h.qty > 0 ? h.cost / h.qty : t.price;
-                let costPart = avg * t.qty;
-                let rev = (t.price * t.qty) - t.fee;
-                h.qty -= t.qty;
+                let soldQty = t.qty;
+                
+                // 計算賣出時的平倉損益
+                let avgCostForSale = h.qty > 0 ? h.cost / h.qty : t.price;
+                let costPart = avgCostForSale * soldQty;
+                let revenue = (t.price * soldQty) - t.fee;
+                let profit = revenue - costPart;
+
+                // 記錄平倉交易
+                if (!closedPositions[t.symbol]) closedPositions[t.symbol] = { cost: 0, revenue: 0, qty: 0 };
+                closedPositions[t.symbol].cost += costPart;
+                closedPositions[t.symbol].revenue += revenue;
+                closedPositions[t.symbol].qty += soldQty;
+
+                // 更新持倉
+                h.qty -= soldQty;
                 h.cost -= costPart;
-                totalRealized += (rev - costPart);
-            } else if (t.type === 'dividend') {
-                symbolDividends[t.symbol] += t.price;
-                totalDividends += t.price;
-            } else if (t.type === 'discount') {
+                totalRealized += profit;
+
+            } else if (t.type === 'dividend' || t.type === 'discount') {
                 symbolDividends[t.symbol] += t.price;
                 totalDividends += t.price;
             }
         });
         
+        // 移除已平倉或股數接近 0 的持倉
         Object.keys(holdings).forEach(k => {
             if (holdings[k].qty < 0.001) delete holdings[k];
         });
 
-        return { holdings, totalRealized, totalDividends, symbolDividends };
+        return { holdings, closedPositions, totalRealized, totalDividends, symbolDividends };
     }
 
+    // 價格更新邏輯 (略)
     async function autoUpdatePrices() {
-        const { holdings } = calculateHoldings();
+        const { holdings } = calculateHoldingsAndClosed();
         const symbols = Object.keys(holdings);
 
         if (symbols.length === 0) return;
@@ -450,10 +481,13 @@
         pricesRef.child(sym).set({ val: parseFloat(val), src: "手動", time: "" });
     }
 
+    // 核心渲染函式已更新
     function render() {
-        const { holdings, totalRealized, totalDividends, symbolDividends } = calculateHoldings();
-        const tbody = document.getElementById('holdingsTable');
-        tbody.innerHTML = '';
+        const { holdings, closedPositions, totalRealized, totalDividends, symbolDividends } = calculateHoldingsAndClosed();
+        
+        // --- 1. 渲染持倉明細 (Holdings Table) ---
+        const tbodyHoldings = document.getElementById('holdingsTable');
+        tbodyHoldings.innerHTML = '';
         
         let gMkt=0, gCost=0, gUnrealized=0;
 
@@ -495,9 +529,50 @@
                     <td class="${divCls}">${fmtMoney(fmtRound(divId))}</td>
                     <td class="${divPlusCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
                 </tr>`;
-            tbody.innerHTML += tr;
+            tbodyHoldings.innerHTML += tr;
         }
 
+        // --- 2. 渲染平倉明細 (Closed Positions Table) ---
+        const tbodyClosed = document.getElementById('closedPositionsTable');
+        tbodyClosed.innerHTML = '';
+
+        for (let s in closedPositions) {
+            let cp = closedPositions[s];
+            let profit = cp.revenue - cp.cost;
+            let rate = cp.cost ? (profit/cp.cost)*100 : 0;
+
+            if (cp.qty > 0) { // 只顯示有平倉紀錄的
+                 let profitCls = profit >= 0 ? 'text-up' : 'text-down';
+                 let rateCls = rate >= 0 ? 'text-up' : 'text-down';
+
+                 let tr = `
+                     <tr>
+                         <td><strong>${s}</strong></td>
+                         <td>${fmtNum(cp.qty)}</td>
+                         <td>${fmtMoney(fmtRound(cp.cost))}</td>
+                         <td>${fmtMoney(fmtRound(cp.revenue))}</td>
+                         <td class="${profitCls}">${fmtMoney(fmtRound(profit))}</td>
+                         <td class="${rateCls}">${rate.toFixed(1)}%</td>
+                     </tr>`;
+                 tbodyClosed.innerHTML += tr;
+            }
+        }
+
+        // --- 3. 渲染儀表板總覽 (Dashboard Totals) ---
+        document.getElementById('totalMarketValue').innerText = fmtMoney(fmtRound(gMkt));
+        document.getElementById('totalMarketValue').className = gMkt >= 0 ? 'text-up' : 'text-down';
+        
+        document.getElementById('totalCost').innerText = fmtMoney(fmtRound(gCost));
+        document.getElementById('totalCost').className = gCost >= 0 ? 'text-up' : 'text-down';
+
+        document.getElementById('totalUnrealizedPL').innerText = fmtMoney(fmtRound(gUnrealized));
+        document.getElementById('totalUnrealizedPL').className = gUnrealized >= 0 ? 'text-up' : 'text-down';
+        document.getElementById('totalUnrealizedRate').innerText = (gCost ? (gUnrealized/gCost)*100 : 0).toFixed(2) + '%';
+        
+        document.getElementById('totalRealizedPL').innerText = fmtMoney(fmtRound(totalRealized + totalDividends));
+        document.getElementById('totalRealizedPL').className = (totalRealized + totalDividends) >= 0 ? 'text-up' : 'text-down';
+
+        // --- 4. 渲染歷史紀錄 (History Table) ---
         const hBody = document.getElementById('historyTable');
         hBody.innerHTML = '';
         [...transactions].reverse().forEach(t => {
@@ -517,19 +592,6 @@
              </tr>`;
             hBody.innerHTML += tr;
         });
-
-        document.getElementById('totalMarketValue').innerText = fmtMoney(fmtRound(gMkt));
-        document.getElementById('totalMarketValue').className = gMkt >= 0 ? 'text-up' : 'text-down';
-        
-        // 修正這裡：增加總成本的顏色判斷
-        document.getElementById('totalCost').innerText = fmtMoney(fmtRound(gCost));
-        document.getElementById('totalCost').className = gCost >= 0 ? 'text-up' : 'text-down';
-
-        document.getElementById('totalUnrealizedPL').innerText = fmtMoney(fmtRound(gUnrealized));
-        document.getElementById('totalUnrealizedPL').className = gUnrealized >= 0 ? 'text-up' : 'text-down';
-        document.getElementById('totalUnrealizedRate').innerText = (gCost ? (gUnrealized/gCost)*100 : 0).toFixed(2) + '%';
-        document.getElementById('totalRealizedPL').innerText = fmtMoney(fmtRound(totalRealized + totalDividends));
-        document.getElementById('totalRealizedPL').className = (totalRealized + totalDividends) >= 0 ? 'text-up' : 'text-down';
     }
 
     // 初始化
