@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人股票損益管理 (進階版)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js"></script>
+    <style>
+        body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
+        .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; margin-bottom: 20px; }
+        .stat-card { text-align: center; padding: 20px; }
+        .text-up { color: #dc3545; font-weight: bold; }
+        .text-down { color: #198754; font-weight: bold; }
+        .loading { opacity: 0.6; pointer-events: none; }
+        .price-source { font-size: 0.75rem; color: #6c757d; display: block;}
+        .update-status { font-size: 0.85rem; color: #6c757d; margin-left: 10px; }
+        .auth-section { position: fixed; top: 20px; right: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 100; }
+    </style>
+</head>
+<body>
+
+<div class="auth-section">
+    <div id="authUI">
+        <button class="btn btn-sm btn-danger" onclick="loginGoogle()">🔐 用 Google 登入</button>
+    </div>
+    <div id="userInfo" style="display:none;">
+        <small id="userName" class="d-block mb-2"></small>
+        <small id="userEmail" class="d-block mb-2 text-muted"></small>
+        <button class="btn btn-sm btn-danger" onclick="logout()">登出</button>
+    </div>
+</div>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>📈 個人股票投資看板 <small class="text-muted fs-6">(進階版)</small></h2>
+            <span class="update-status" id="autoUpdateStatus">自動更新中...</span>
+        </div>
+        <button id="btnUpdatePrice" class="btn btn-primary" onclick="forceUpdatePrices()">
+            🔄 強制更新現價
+        </button>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <h5 class="text-muted">總市值</h5>
+                <h3 id="totalMarketValue">0</h3>
+                <small class="text-muted">現在持股價值</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <h5 class="text-muted">總投入成本</h5>
+                <h3 id="totalCost">0</h3>
+                <small class="text-muted">已投入資金</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <h5 class="text-muted">未實現損益</h5>
+                <h3 id="totalUnrealizedPL">0</h3>
+                <small id="totalUnrealizedRate">0%</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <h5 class="text-muted">已實現+股利</h5>
+                <h3 id="totalRealizedPL">0</h3>
+                <small class="text-muted">落袋為安</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-dark text-white">新增交易紀錄</div>
+        <div class="card-body">
+            <form id="tradeForm" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">類別</label>
+                    <select class="form-select" id="type" onchange="toggleInputs()">
+                        <option value="buy">買入</option>
+                        <option value="sell">賣出</option>
+                        <option value="dividend">現金股利</option>
+                        <option value="discount">折讓/退費</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">股票代號</label>
+                    <input type="text" class="form-control" id="symbol" placeholder="例: 2330" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">交易日期</label>
+                    <input type="date" class="form-control" id="tradeDate" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" id="lblPrice">成交單價</label>
+                    <input type="number" class="form-control" id="price" step="0.01">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" id="lblQty">股數</label>
+                    <input type="number" class="form-control" id="qty">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" id="lblFee">手續費 (自動計算)</label>
+                    <input type="number" class="form-control" id="fee" readonly style="background-color: #f0f0f0;">
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-success">新增</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">📊 目前持倉</div>
+        <div class="card-body table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>股票</th>
+                        <th>股數</th>
+                        <th>均價</th>
+                        <th>現價 <small>(自動抓取)</small></th>
+                        <th>市值</th>
+                        <th>未實現損益</th>
+                        <th>未實現損益率 %</th>
+                        <th>股利</th>
+                        <th>未實現損益+股利</th>
+                    </tr>
+                </thead>
+                <tbody id="holdingsTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">📝 歷史紀錄</div>
+        <div class="card-body table-responsive">
+            <table class="table table-sm table-striped">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>類別</th>
+                        <th>股票</th>
+                        <th>明細</th>
+                        <th>損益/收支</th>
+                        <th>手續費</th>
+                        <th>刪除</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Firebase 設定
+    const firebaseConfig = {
+        apiKey: "AIzaSyDqE-QYqXgZ1xZ_oKIIGIypDzB4iKIvwCk",
+        authDomain: "stock-dashboard-a1b1c.firebaseapp.com",
+        databaseURL: "https://stock-dashboard-a1b1c-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "stock-dashboard-a1b1c",
+        storageBucket: "stock-dashboard-a1b1c.firebasestorage.app",
+        messagingSenderId: "1013607091612",
+        appId: "1:1013607091612:web:eb8c54458a3d731bf9cc59",
+        measurementId: "G-WQ32XFZQSQ"
+    };
+
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth();
+
+    let transactions = [];
+    let priceCache = {};
+    let currentUser = null;
+    const PRICE_UPDATE_INTERVAL = 30000;
+
+    // 監聽認證狀態
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            currentUser = user;
+            document.getElementById('authUI').style.display = 'none';
+            document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('userName').innerText = user.displayName || '使用者';
+            document.getElementById('userEmail').innerText = user.email;
+            
+            // 載入該使用者的資料
+            loadUserData();
+        } else {
+            currentUser = null;
+            document.getElementById('authUI').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'none';
+            transactions = [];
+            priceCache = {};
+            render();
+        }
+    });
+
+    // Google 登入
+    function loginGoogle() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(err => alert('登入失敗: ' + err.message));
+    }
+
+    // 登出
+    function logout() {
+        auth.signOut();
+    }
+
+    // 載入使用者資料
+    function loadUserData() {
+        if (!currentUser) return;
+        
+        const userRef = db.ref('users/' + currentUser.uid);
+        
+        userRef.on('value', snapshot => {
+            const data = snapshot.val();
+            if (data) {
+                transactions = data.transactions || [];
+                priceCache = data.priceCache || {};
+            } else {
+                transactions = [];
+                priceCache = {};
+            }
+            render();
+        });
+    }
+
+    // 保存資料到 Firebase
+    function saveData() {
+        if (!currentUser) return;
+        
+        const userRef = db.ref('users/' + currentUser.uid);
+        userRef.set({
+            transactions: transactions,
+            priceCache: priceCache,
+            lastUpdated: new Date().toLocaleString()
+        }).catch(err => console.error('保存失敗:', err));
+    }
+
+    // 格式化函數
+    const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0 }).format(n);
+    const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
+
+    // 計算手續費
+    function calculateFee(amount) {
+        let fee = Math.round(amount * 0.001425);
+        return Math.max(fee, 20);
+    }
+
+    // 初始化日期
+    document.getElementById('tradeDate').valueAsDate = new Date();
+
+    // 監聽價格和股數變化
+    document.getElementById('price').addEventListener('change', updateFeeDisplay);
+    document.getElementById('qty').addEventListener('change', updateFeeDisplay);
+    document.getElementById('type').addEventListener('change', updateFeeDisplay);
+
+    function updateFeeDisplay() {
+        const type = document.getElementById('type').value;
+        if (type === 'buy' || type === 'sell') {
+            const price = parseFloat(document.getElementById('price').value) || 0;
+            const qty = parseFloat(document.getElementById('qty').value) || 0;
+            const amount = price * qty;
+            const fee = calculateFee(amount);
+            document.getElementById('fee').value = fee;
+        } else {
+            document.getElementById('fee').value = 0;
+        }
+    }
+
+    function toggleInputs() {
+        const type = document.getElementById('type').value;
+        const priceInput = document.getElementById('price');
+        const qtyInput = document.getElementById('qty');
+        const feeInput = document.getElementById('fee');
+        const lblPrice = document.getElementById('lblPrice');
+        const lblQty = document.getElementById('lblQty');
+        const lblFee = document.getElementById('lblFee');
+
+        if (type === 'dividend' || type === 'discount') {
+            qtyInput.disabled = true;
+            qtyInput.value = 1;
+            lblPrice.innerText = type === 'dividend' ? "股利金額" : "折讓金額";
+            lblQty.innerText = "份數(固定1)";
+            priceInput.placeholder = "總金額";
+            feeInput.value = 0;
+            lblFee.innerText = "手續費 (無)";
+            feeInput.disabled = true;
+        } else {
+            qtyInput.disabled = false;
+            lblPrice.innerText = "成交單價";
+            lblQty.innerText = "股數";
+            priceInput.placeholder = "";
+            lblFee.innerText = "手續費 (自動計算)";
+            feeInput.disabled = true;
+            updateFeeDisplay();
+        }
+    }
+
+    document.getElementById('tradeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (!currentUser) {
+            alert('請先登入');
+            return;
+        }
+
+        const type = document.getElementById('type').value;
+        const symbol = document.getElementById('symbol').value.toUpperCase().trim();
+        const tradeDate = document.getElementById('tradeDate').value;
+        let price = parseFloat(document.getElementById('price').value) || 0;
+        let qty = parseFloat(document.getElementById('qty').value) || 0;
+        let fee = parseFloat(document.getElementById('fee').value) || 0;
+
+        if (!symbol || !price) {
+            alert('請填入股票代號和金額');
+            return;
+        }
+
+        transactions.push({ 
+            id: Date.now(), 
+            date: tradeDate,
+            time: new Date().toLocaleString(),
+            type, 
+            symbol, 
+            price, 
+            qty, 
+            fee 
+        });
+        
+        saveData();
+        render();
+        this.reset();
+        document.getElementById('type').value = 'buy';
+        document.getElementById('tradeDate').valueAsDate = new Date();
+        toggleInputs();
+    });
+
+    function deleteTrade(id) {
+        if(confirm('刪除此筆？')) {
+            transactions = transactions.filter(t => t.id !== id);
+            saveData();
+            render();
+        }
+    }
+
+    function calculateHoldings() {
+        let holdings = {};
+        let totalRealized = 0;
+        let totalDividends = 0;
+        let symbolDividends = {};
+        
+        [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+            if (!holdings[t.symbol]) holdings[t.symbol] = { qty: 0, cost: 0 };
+            if (!symbolDividends[t.symbol]) symbolDividends[t.symbol] = 0;
+            
+            let h = holdings[t.symbol];
+            
+            if (t.type === 'buy') {
+                h.qty += t.qty;
+                h.cost += (t.price * t.qty) + t.fee;
+            } else if (t.type === 'sell') {
+                let avg = h.qty > 0 ? h.cost / h.qty : t.price;
+                let costPart = avg * t.qty;
+                let rev = (t.price * t.qty) - t.fee;
+                h.qty -= t.qty;
+                h.cost -= costPart;
+                totalRealized += (rev - costPart);
+            } else if (t.type === 'dividend') {
+                symbolDividends[t.symbol] += t.price;
+                totalDividends += t.price;
+            } else if (t.type === 'discount') {
+                symbolDividends[t.symbol] += t.price;
+                totalDividends += t.price;
+            }
+        });
+        
+        Object.keys(holdings).forEach(k => {
+            if (holdings[k].qty < 0.001) delete holdings[k];
+        });
+
+        return { holdings, totalRealized, totalDividends, symbolDividends };
+    }
+
+    async function autoUpdatePrices() {
+        const { holdings } = calculateHoldings();
+        const symbols = Object.keys(holdings);
+
+        if (symbols.length === 0) return;
+
+        let query = symbols.map(s => `tse_${s}.tw|otc_${s}.tw`).join('|');
+        const timeStamp = new Date().getTime();
+        const targetUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${query}&json=1&delay=0&_=${timeStamp}`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+
+        try {
+            const res = await fetch(proxyUrl);
+            const data = await res.json();
+
+            if (data.msgArray && data.msgArray.length > 0) {
+                data.msgArray.forEach(stk => {
+                    let sym = stk.c;
+                    let price = stk.z;
+                    let source = "即時";
+
+                    if (price === '-' || !price) {
+                        if (stk.o && stk.o !== '-') { price = stk.o; source = "開盤價"; }
+                        else if (stk.y && stk.y !== '-') { price = stk.y; source = "昨收價"; }
+                        else if (stk.b && stk.b.split('_')[0] !== '-') { price = stk.b.split('_')[0]; source = "買進價"; }
+                    }
+
+                    if (sym && price && price !== '-') {
+                        priceCache[sym] = { 
+                            val: parseFloat(price), 
+                            src: source, 
+                            time: stk.t || '收盤' 
+                        };
+                    }
+                });
+
+                saveData();
+                render();
+                updateStatusMessage();
+            }
+        } catch (err) {
+            console.error('自動更新失敗:', err);
+        }
+    }
+
+    async function forceUpdatePrices() {
+        const btn = document.getElementById('btnUpdatePrice');
+        btn.innerHTML = '⏳ 讀取中...';
+        btn.classList.add('loading');
+
+        await autoUpdatePrices();
+
+        btn.innerHTML = '🔄 強制更新現價';
+        btn.classList.remove('loading');
+    }
+
+    function updateStatusMessage() {
+        const status = document.getElementById('autoUpdateStatus');
+        const now = new Date();
+        const time = now.toLocaleTimeString('zh-TW');
+        status.innerText = `最後更新: ${time}`;
+    }
+
+    window.manualPrice = function(sym, val) {
+        priceCache[sym] = { val: parseFloat(val), src: "手動", time: "" };
+        saveData();
+        render();
+    }
+
+    function render() {
+        const { holdings, totalRealized, totalDividends, symbolDividends } = calculateHoldings();
+        const tbody = document.getElementById('holdingsTable');
+        tbody.innerHTML = '';
+        
+        let gMkt=0, gCost=0, gUnrealized=0;
+
+        for (let s in holdings) {
+            let h = holdings[s];
+            let avg = h.cost / h.qty;
+            
+            let pObj = priceCache[s] || { val: avg, src: '無資料' };
+            let currP = pObj.val;
+
+            let mkt = h.qty * currP;
+            let unrl = mkt - h.cost;
+            let rate = h.cost ? (unrl/h.cost)*100 : 0;
+            let divId = symbolDividends[s] || 0;
+            let divPlusUnrl = divId + unrl;
+            
+            let cls = unrl >= 0 ? 'text-up' : 'text-down';
+            let divCls = divPlusUnrl >= 0 ? 'text-up' : 'text-down';
+
+            let tr = `
+                <tr>
+                    <td><strong>${s}</strong></td>
+                    <td>${fmtNum(h.qty)}</td>
+                    <td>${fmtNum(avg.toFixed(2))}</td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm d-inline-block" style="width:90px" 
+                            value="${currP}" onchange="manualPrice('${s}', this.value)">
+                        <span class="price-source">${pObj.src} ${pObj.time||''}</span>
+                    </td>
+                    <td>${fmtMoney(mkt)}</td>
+                    <td class="${cls}">${fmtMoney(unrl)}</td>
+                    <td class="${cls}">${rate.toFixed(2)}%</td>
+                    <td class="text-up">${fmtMoney(divId)}</td>
+                    <td class="${divCls}">${fmtMoney(divPlusUnrl)}</td>
+                </tr>`;
+            tbody.innerHTML += tr;
+            gMkt+=mkt; gCost+=h.cost; gUnrealized+=unrl;
+        }
+
+        const hBody = document.getElementById('historyTable');
+        hBody.innerHTML = '';
+        [...transactions].reverse().forEach(t => {
+            let typeText = t.type === 'buy' ? '買' : (t.type === 'sell' ? '賣' : (t.type === 'dividend' ? '股利' : '折讓'));
+            let typeBg = t.type === 'buy' ? 'bg-secondary' : (t.type === 'sell' ? 'bg-success' : 'bg-warning text-dark');
+            let detail = (t.type === 'dividend' || t.type === 'discount') ? fmtMoney(t.price) : `${fmtNum(t.price)}/股 × ${fmtNum(t.qty)}股`;
+            let amount = t.type === 'buy' ? (t.price * t.qty + t.fee) : (t.type === 'sell' ? (t.price * t.qty - t.fee) : t.price);
+            
+            let tr = `<tr>
+                <td><small>${t.date}</small></td>
+                <td><span class="badge ${typeBg}">${typeText}</span></td>
+                <td>${t.symbol}</td>
+                <td><small>${detail}</small></td>
+                <td>${t.type === 'buy' ? '-' : '+'}${fmtMoney(Math.abs(amount))}</td>
+                <td>${t.fee > 0 ? fmtMoney(t.fee) : '-'}</td>
+                <td><button class="btn btn-sm btn-outline-danger py-0" onclick="deleteTrade(${t.id})">×</button></td>
+             </tr>`;
+            hBody.innerHTML += tr;
+        });
+
+        document.getElementById('totalMarketValue').innerText = fmtMoney(gMkt);
+        document.getElementById('totalCost').innerText = fmtMoney(gCost);
+        document.getElementById('totalUnrealizedPL').innerText = fmtMoney(gUnrealized);
+        document.getElementById('totalUnrealizedPL').className = gUnrealized >= 0 ? 'text-up' : 'text-down';
+        document.getElementById('totalUnrealizedRate').innerText = (gCost ? (gUnrealized/gCost)*100 : 0).toFixed(2) + '%';
+        document.getElementById('totalRealizedPL').innerText = fmtMoney(totalRealized + totalDividends);
+        document.getElementById('totalRealizedPL').className = (totalRealized + totalDividends) >= 0 ? 'text-up' : 'text-down';
+    }
+
+    // 初始化
+    updateStatusMessage();
+    setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
+</script>
+
+</body>
+</html>
