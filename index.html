@@ -154,6 +154,7 @@
     // 格式化函數
     const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0 }).format(n);
     const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
+    const fmtRound = (n) => Math.round(n); // 四捨五入去除小數
 
     // 計算手續費
     function calculateFee(amount) {
@@ -187,10 +188,13 @@
         const lblPrice = document.getElementById('lblPrice');
         const lblQty = document.getElementById('lblQty');
         const lblFee = document.getElementById('lblFee');
+        const symbolInput = document.getElementById('symbol');
 
         if (type === 'dividend' || type === 'discount') {
             qtyInput.disabled = true;
             qtyInput.value = 1;
+            symbolInput.disabled = type === 'discount';
+            symbolInput.required = type !== 'discount';
             lblPrice.innerText = type === 'dividend' ? "股利金額" : "折讓金額";
             lblQty.innerText = "份數(固定1)";
             priceInput.placeholder = "總金額";
@@ -199,6 +203,8 @@
             feeInput.disabled = true;
         } else {
             qtyInput.disabled = false;
+            symbolInput.disabled = false;
+            symbolInput.required = true;
             lblPrice.innerText = "成交單價";
             lblQty.innerText = "股數";
             priceInput.placeholder = "";
@@ -217,8 +223,13 @@
         let qty = parseFloat(document.getElementById('qty').value) || 0;
         let fee = parseFloat(document.getElementById('fee').value) || 0;
 
-        if (!symbol || !price) {
-            alert('請填入股票代號和金額');
+        if (!tradeDate || !price) {
+            alert('請填入交易日期和金額');
+            return;
+        }
+
+        if ((type === 'buy' || type === 'sell') && !symbol) {
+            alert('請填入股票代號');
             return;
         }
 
@@ -400,10 +411,10 @@
                         <span class="price-source">${pObj.src} ${pObj.time||''}</span>
                     </td>
                     <td>${fmtMoney(mkt)}</td>
-                    <td class="${cls}">${fmtMoney(unrl)}</td>
+                    <td class="${cls}">${fmtMoney(fmtRound(unrl))}</td>
                     <td class="${cls}">${rate.toFixed(2)}%</td>
-                    <td class="text-up">${fmtMoney(divId)}</td>
-                    <td class="${divCls}">${fmtMoney(divPlusUnrl)}</td>
+                    <td class="text-up">${fmtMoney(fmtRound(divId))}</td>
+                    <td class="${divCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
                 </tr>`;
             tbody.innerHTML += tr;
             gMkt+=mkt; gCost+=h.cost; gUnrealized+=unrl;
@@ -413,8 +424,8 @@
         hBody.innerHTML = '';
         [...transactions].reverse().forEach(t => {
             let typeText = t.type === 'buy' ? '買' : (t.type === 'sell' ? '賣' : (t.type === 'dividend' ? '股利' : '折讓'));
-            let typeBg = t.type === 'buy' ? 'bg-secondary' : (t.type === 'sell' ? 'bg-success' : 'bg-warning text-dark');
-            let detail = (t.type === 'dividend' || t.type === 'discount') ? fmtMoney(t.price) : `${fmtNum(t.price)}/股 × ${fmtNum(t.qty)}股`;
+            let typeBg = t.type === 'buy' ? 'bg-danger' : (t.type === 'sell' ? 'bg-success' : 'bg-warning text-dark');
+            let detail = (t.type === 'dividend' || t.type === 'discount') ? fmtMoney(fmtRound(t.price)) : `${fmtNum(t.price)}/股 × ${fmtNum(t.qty)}股`;
             let amount = t.type === 'buy' ? (t.price * t.qty + t.fee) : (t.type === 'sell' ? (t.price * t.qty - t.fee) : t.price);
             
             let tr = `<tr>
@@ -422,19 +433,21 @@
                 <td><span class="badge ${typeBg}">${typeText}</span></td>
                 <td>${t.symbol}</td>
                 <td><small>${detail}</small></td>
-                <td>${t.type === 'buy' ? '-' : '+'}${fmtMoney(Math.abs(amount))}</td>
-                <td>${t.fee > 0 ? fmtMoney(t.fee) : '-'}</td>
+                <td>${t.type === 'buy' ? '-' : '+'}${fmtMoney(fmtRound(Math.abs(amount)))}</td>
+                <td>${t.fee > 0 ? fmtMoney(fmtRound(t.fee)) : '-'}</td>
                 <td><button class="btn btn-sm btn-outline-danger py-0" onclick="deleteTrade(${t.id})">×</button></td>
              </tr>`;
             hBody.innerHTML += tr;
         });
 
-        document.getElementById('totalMarketValue').innerText = fmtMoney(gMkt);
-        document.getElementById('totalCost').innerText = fmtMoney(gCost);
-        document.getElementById('totalUnrealizedPL').innerText = fmtMoney(gUnrealized);
+        document.getElementById('totalMarketValue').innerText = fmtMoney(fmtRound(gMkt));
+        document.getElementById('totalMarketValue').className = gMkt >= 0 ? 'text-up' : 'text-down';
+        document.getElementById('totalCost').innerText = fmtMoney(fmtRound(gCost));
+        document.getElementById('totalCost').className = gCost >= 0 ? 'text-up' : 'text-down';
+        document.getElementById('totalUnrealizedPL').innerText = fmtMoney(fmtRound(gUnrealized));
         document.getElementById('totalUnrealizedPL').className = gUnrealized >= 0 ? 'text-up' : 'text-down';
         document.getElementById('totalUnrealizedRate').innerText = (gCost ? (gUnrealized/gCost)*100 : 0).toFixed(2) + '%';
-        document.getElementById('totalRealizedPL').innerText = fmtMoney(totalRealized + totalDividends);
+        document.getElementById('totalRealizedPL').innerText = fmtMoney(fmtRound(totalRealized + totalDividends));
         document.getElementById('totalRealizedPL').className = (totalRealized + totalDividends) >= 0 ? 'text-up' : 'text-down';
     }
 
