@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>個人股票損益管理 (進階版)</title>
+    <title>個人股票損益管理 (Firebase版)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
@@ -14,6 +14,9 @@
         .loading { opacity: 0.6; pointer-events: none; }
         .price-source { font-size: 0.75rem; color: #6c757d; display: block;}
         .update-status { font-size: 0.85rem; color: #6c757d; margin-left: 10px; }
+        .firebase-status { font-size: 0.85rem; padding: 5px 10px; border-radius: 5px; }
+        .firebase-connected { background-color: #d4edda; color: #155724; }
+        .firebase-disconnected { background-color: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
@@ -21,8 +24,11 @@
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2>📈 個人股票投資看板 <small class="text-muted fs-6">(進階版)</small></h2>
-            <span class="update-status" id="autoUpdateStatus">自動更新中...</span>
+            <h2>📈 個人股票投資看板 <small class="text-muted fs-6">(Firebase版)</small></h2>
+            <div>
+                <span class="update-status" id="autoUpdateStatus">自動更新中...</span>
+                <span class="firebase-status" id="firebaseStatus">Firebase: 連線中...</span>
+            </div>
         </div>
         <button id="btnUpdatePrice" class="btn btn-primary" onclick="forceUpdatePrices()">
             🔄 強制更新現價
@@ -143,10 +149,44 @@
     </div>
 </div>
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
 <script>
+    // ⚠️ 請替換成你自己的 Firebase 設定
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT_ID.appspot.com",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const transactionsRef = database.ref('transactions');
+    const pricesRef = database.ref('prices');
+
     let transactions = [];
     let priceCache = {};
     const PRICE_UPDATE_INTERVAL = 30000;
+
+    // 監聽 Firebase 連線狀態
+    const connectedRef = database.ref('.info/connected');
+    connectedRef.on('value', (snap) => {
+        const statusEl = document.getElementById('firebaseStatus');
+        if (snap.val() === true) {
+            statusEl.innerText = 'Firebase: 已連線 ✓';
+            statusEl.className = 'firebase-status firebase-connected';
+        } else {
+            statusEl.innerText = 'Firebase: 離線 ✗';
+            statusEl.className = 'firebase-status firebase-disconnected';
+        }
+    });
 
     // 初始化日期
     document.getElementById('tradeDate').valueAsDate = new Date();
@@ -154,7 +194,7 @@
     // 格式化函數
     const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0 }).format(n);
     const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
-    const fmtRound = (n) => Math.round(n); // 四捨五入去除小數
+    const fmtRound = (n) => Math.round(n);
 
     // 計算手續費
     function calculateFee(amount) {
@@ -233,19 +273,19 @@
             return;
         }
 
-        transactions.push({ 
-            id: Date.now(), 
+        const newTransaction = { 
             date: tradeDate,
-            time: new Date().toLocaleString(),
+            time: new Date().toISOString(),
             type, 
             symbol, 
             price, 
             qty, 
             fee 
-        });
+        };
+
+        // 新增到 Firebase
+        transactionsRef.push(newTransaction);
         
-        saveData();
-        render();
         this.reset();
         document.getElementById('type').value = 'buy';
         document.getElementById('tradeDate').valueAsDate = new Date();
@@ -254,20 +294,31 @@
 
     function deleteTrade(id) {
         if(confirm('刪除此筆？')) {
-            transactions = transactions.filter(t => t.id !== id);
-            saveData();
-            render();
+            transactionsRef.child(id).remove();
         }
     }
 
-    function saveData() {
-        localStorage.setItem('stockTransactions', JSON.stringify(transactions));
-        localStorage.setItem('stockPriceCache', JSON.stringify(priceCache));
-    }
+    // 從 Firebase 載入資料
+    function loadDataFromFirebase() {
+        // 監聽交易紀錄
+        transactionsRef.on('value', (snapshot) => {
+            transactions = [];
+            snapshot.forEach((child) => {
+                transactions.push({
+                    id: child.key,
+                    ...child.val()
+                });
+            });
+            render();
+        });
 
-    function loadData() {
-        transactions = JSON.parse(localStorage.getItem('stockTransactions')) || [];
-        priceCache = JSON.parse(localStorage.getItem('stockPriceCache')) || {};
+        // 監聽股價快取
+        pricesRef.on('value', (snapshot) => {
+            if (snapshot.exists()) {
+                priceCache = snapshot.val();
+                render();
+            }
+        });
     }
 
     function calculateHoldings() {
@@ -324,6 +375,7 @@
             const data = await res.json();
 
             if (data.msgArray && data.msgArray.length > 0) {
+                let updates = {};
                 data.msgArray.forEach(stk => {
                     let sym = stk.c;
                     let price = stk.z;
@@ -336,7 +388,7 @@
                     }
 
                     if (sym && price && price !== '-') {
-                        priceCache[sym] = { 
+                        updates[sym] = { 
                             val: parseFloat(price), 
                             src: source, 
                             time: stk.t || '收盤' 
@@ -344,8 +396,8 @@
                     }
                 });
 
-                saveData();
-                render();
+                // 更新到 Firebase
+                pricesRef.update(updates);
                 updateStatusMessage();
             }
         } catch (err) {
@@ -372,9 +424,7 @@
     }
 
     function manualPrice(sym, val) {
-        priceCache[sym] = { val: parseFloat(val), src: "手動", time: "" };
-        saveData();
-        render();
+        pricesRef.child(sym).set({ val: parseFloat(val), src: "手動", time: "" });
     }
 
     function render() {
@@ -397,12 +447,10 @@
             let divId = symbolDividends[s] || 0;
             let divPlusUnrl = divId + unrl;
             
-            // 累加到總計
             gMkt += mkt;
             gCost += h.cost;
             gUnrealized += unrl;
 
-            // 決定顏色類別
             let unrlCls = unrl >= 0 ? 'text-up' : 'text-down';
             let rateCls = rate >= 0 ? 'text-up' : 'text-down';
             let divCls = divId >= 0 ? 'text-up' : 'text-down';
@@ -442,7 +490,7 @@
                 <td><small>${detail}</small></td>
                 <td>${t.type === 'buy' ? '-' : '+'}${fmtMoney(fmtRound(Math.abs(amount)))}</td>
                 <td>${t.fee > 0 ? fmtMoney(fmtRound(t.fee)) : '-'}</td>
-                <td><button class="btn btn-sm btn-outline-danger py-0" onclick="deleteTrade(${t.id})">×</button></td>
+                <td><button class="btn btn-sm btn-outline-danger py-0" onclick="deleteTrade('${t.id}')">×</button></td>
              </tr>`;
             hBody.innerHTML += tr;
         });
@@ -459,12 +507,9 @@
     }
 
     // 初始化
-    loadData();
-    render();
+    loadDataFromFirebase();
     autoUpdatePrices();
     updateStatusMessage();
-
-    // 每30秒自動更新一次股價
     setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
 </script>
 
