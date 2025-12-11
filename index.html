@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>個人股票損益管理 (進階版)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js"></script>
     <style>
         body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
         .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; margin-bottom: 20px; }
@@ -17,21 +14,9 @@
         .loading { opacity: 0.6; pointer-events: none; }
         .price-source { font-size: 0.75rem; color: #6c757d; display: block;}
         .update-status { font-size: 0.85rem; color: #6c757d; margin-left: 10px; }
-        .auth-section { position: fixed; top: 20px; right: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 100; }
     </style>
 </head>
 <body>
-
-<div class="auth-section">
-    <div id="authUI">
-        <button class="btn btn-sm btn-danger" onclick="loginGoogle()">🔐 用 Google 登入</button>
-    </div>
-    <div id="userInfo" style="display:none;">
-        <small id="userName" class="d-block mb-2"></small>
-        <small id="userEmail" class="d-block mb-2 text-muted"></small>
-        <button class="btn btn-sm btn-danger" onclick="logout()">登出</button>
-    </div>
-</div>
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -159,98 +144,12 @@
 </div>
 
 <script>
-    // 等待 Firebase SDK 載入
-    window.addEventListener('load', function() {
-        // Firebase 設定
-        const firebaseConfig = {
-            apiKey: "AIzaSyDqE-QYqXgZ1xZ_oKIIGIypDzB4iKIvwCk",
-            authDomain: "stock-dashboard-a1b1c.firebaseapp.com",
-            databaseURL: "https://stock-dashboard-a1b1c-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "stock-dashboard-a1b1c",
-            storageBucket: "stock-dashboard-a1b1c.firebasestorage.app",
-            messagingSenderId: "1013607091612",
-            appId: "1:1013607091612:web:eb8c54458a3d731bf9cc59",
-            measurementId: "G-WQ32XFZQSQ"
-        };
-
-        // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const auth = firebase.auth();
-
-        initApp();
-    });
-
-    function initApp() {
-        const auth = firebase.auth();
-
     let transactions = [];
     let priceCache = {};
-    let currentUser = null;
     const PRICE_UPDATE_INTERVAL = 30000;
 
-    // 監聽認證狀態
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            currentUser = user;
-            document.getElementById('authUI').style.display = 'none';
-            document.getElementById('userInfo').style.display = 'block';
-            document.getElementById('userName').innerText = user.displayName || '使用者';
-            document.getElementById('userEmail').innerText = user.email;
-            
-            // 載入該使用者的資料
-            loadUserData();
-        } else {
-            currentUser = null;
-            document.getElementById('authUI').style.display = 'block';
-            document.getElementById('userInfo').style.display = 'none';
-            transactions = [];
-            priceCache = {};
-            render();
-        }
-    });
-
-    // Google 登入
-    function loginGoogle() {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider).catch(err => alert('登入失敗: ' + err.message));
-    }
-
-    // 登出
-    function logout() {
-        auth.signOut();
-    }
-
-    // 載入使用者資料
-    function loadUserData() {
-        if (!currentUser) return;
-        
-        const userRef = db.ref('users/' + currentUser.uid);
-        
-        userRef.on('value', snapshot => {
-            const data = snapshot.val();
-            if (data) {
-                transactions = data.transactions || [];
-                priceCache = data.priceCache || {};
-            } else {
-                transactions = [];
-                priceCache = {};
-            }
-            render();
-        });
-    }
-
-    // 保存資料到 Firebase
-    function saveData() {
-        if (!currentUser) return;
-        
-        const userRef = db.ref('users/' + currentUser.uid);
-        userRef.set({
-            transactions: transactions,
-            priceCache: priceCache,
-            lastUpdated: new Date().toLocaleString()
-        }).catch(err => console.error('保存失敗:', err));
-    }
+    // 初始化日期
+    document.getElementById('tradeDate').valueAsDate = new Date();
 
     // 格式化函數
     const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0 }).format(n);
@@ -262,8 +161,7 @@
         return Math.max(fee, 20);
     }
 
-    // 初始化日期
-    document.getElementById('tradeDate').valueAsDate = new Date();
+    // 監聽價格和股數變化
     document.getElementById('price').addEventListener('change', updateFeeDisplay);
     document.getElementById('qty').addEventListener('change', updateFeeDisplay);
     document.getElementById('type').addEventListener('change', updateFeeDisplay);
@@ -312,11 +210,6 @@
 
     document.getElementById('tradeForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        if (!currentUser) {
-            alert('請先登入');
-            return;
-        }
-
         const type = document.getElementById('type').value;
         const symbol = document.getElementById('symbol').value.toUpperCase().trim();
         const tradeDate = document.getElementById('tradeDate').value;
@@ -354,6 +247,16 @@
             saveData();
             render();
         }
+    }
+
+    function saveData() {
+        localStorage.setItem('stockTransactions', JSON.stringify(transactions));
+        localStorage.setItem('stockPriceCache', JSON.stringify(priceCache));
+    }
+
+    function loadData() {
+        transactions = JSON.parse(localStorage.getItem('stockTransactions')) || [];
+        priceCache = JSON.parse(localStorage.getItem('stockPriceCache')) || {};
     }
 
     function calculateHoldings() {
@@ -439,15 +342,15 @@
         }
     }
 
-    async function forceUpdatePrices() {
+    function forceUpdatePrices() {
         const btn = document.getElementById('btnUpdatePrice');
         btn.innerHTML = '⏳ 讀取中...';
         btn.classList.add('loading');
 
-        await autoUpdatePrices();
-
-        btn.innerHTML = '🔄 強制更新現價';
-        btn.classList.remove('loading');
+        autoUpdatePrices().then(() => {
+            btn.innerHTML = '🔄 強制更新現價';
+            btn.classList.remove('loading');
+        });
     }
 
     function updateStatusMessage() {
@@ -457,7 +360,7 @@
         status.innerText = `最後更新: ${time}`;
     }
 
-    window.manualPrice = function(sym, val) {
+    function manualPrice(sym, val) {
         priceCache[sym] = { val: parseFloat(val), src: "手動", time: "" };
         saveData();
         render();
@@ -536,7 +439,12 @@
     }
 
     // 初始化
+    loadData();
+    render();
+    autoUpdatePrices();
     updateStatusMessage();
+
+    // 每30秒自動更新一次股價
     setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
 </script>
 
