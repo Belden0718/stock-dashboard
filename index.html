@@ -10,7 +10,6 @@
         .card { box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: none; margin-bottom: 1.5rem; }
         .stat-card { text-align: center; padding: 15px; height: 100%; }
         
-        /* 文字顏色與樣式 */
         .text-up { color: #dc3545 !important; font-weight: bold !important; }
         .text-down { color: #198754 !important; font-weight: bold !important; }
         .price-source { font-size: 0.7rem; color: #999; display: block; margin-top: 2px;}
@@ -28,8 +27,6 @@
             .stat-card h3 { font-size: 1.5rem; }
             .stat-card h5 { font-size: 0.9rem; }
             .btn { width: 100%; margin-top: 5px; }
-            .header-controls { flex-direction: column; align-items: flex-start; }
-            .header-controls > div { width: 100%; margin-bottom: 10px; }
         }
     </style>
 </head>
@@ -38,7 +35,7 @@
 <div class="container py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <div class="mb-2">
-            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(Firebase v6)</small></h2>
+            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(Firebase v7)</small></h2>
             <div class="status-bar">
                 <span id="autoUpdateStatus">等待登入...</span> | 
                 <span class="firebase-status" id="firebaseStatus">連線中...</span>
@@ -48,15 +45,15 @@
         <div class="col-12 col-md-auto d-flex align-items-center flex-wrap justify-content-end">
             <span id="userInfo" class="auth-info d-none d-md-block">請登入</span>
             
-            <button id="btnGoogleSignIn" class="btn btn-danger btn-sm px-3 me-2" onclick="signInWithGoogle()">
+            <button id="btnGoogleSignIn" class="btn btn-danger btn-sm px-3 me-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-google me-1" viewBox="0 0 16 16"><path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.636c0 1.64-.42 3.17-1.15 4.51a9.03 9.03 0 0 1-3.14 3.29 8.78 8.78 0 0 1-4.42 1.18A9 9 0 1 1 12 3.48a8.93 8.93 0 0 1 2.96 2.19l-3.02 2.9a5.37 5.37 0 0 0-3.94-1.69 5.52 5.52 0 1 0 3.94 9.4 4.48 4.48 0 0 0 2.93-2.96H8.03v-3.8h7.52z"/></svg>
                 Google 登入
             </button>
 
-            <button id="btnSignOut" class="btn btn-secondary btn-sm px-3" onclick="signOutUser()" style="display:none;">
+            <button id="btnSignOut" class="btn btn-secondary btn-sm px-3" style="display:none;">
                 登出
             </button>
-            <button id="btnUpdatePrice" class="btn btn-primary btn-sm px-3 ms-2" onclick="forceUpdatePrices()">
+            <button id="btnUpdatePrice" class="btn btn-primary btn-sm px-3 ms-2">
                 🔄 更新現價
             </button>
         </div>
@@ -102,7 +99,7 @@
             <form id="tradeForm" class="row g-2">
                 <div class="col-6 col-md-2">
                     <label class="form-label small">類別</label>
-                    <select class="form-select form-select-sm" id="type" onchange="toggleInputs()">
+                    <select class="form-select form-select-sm" id="type">
                         <option value="buy">買入</option>
                         <option value="sell">賣出</option>
                         <option value="dividend">現金股利</option>
@@ -210,12 +207,15 @@
     </div>
 </div>
 
-<!-- 修正：將所有 Firebase SDK 一起載入 -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
 <script>
+(function() {
+    'use strict';
+    
     const firebaseConfig = {
       apiKey: "AIzaSyDqE-QYqXgZ1xZ_oKIIGIypDzB4iKIvwCk",
       authDomain: "stock-dashboard-a1b1c.firebaseapp.com",
@@ -229,18 +229,18 @@
 
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
+    const auth = firebase.auth();
     
     let transactionsRef = null;
     let pricesRef = null;
     let transactions = [];
     let priceCache = {};
     let currentUID = null;
-    let priceUpdateInterval = null; // 修正：保存定時器 ID
+    let priceUpdateInterval = null;
     const PRICE_UPDATE_INTERVAL = 30000;
 
     // Firebase 連線狀態監聽
-    const connectedRef = database.ref('.info/connected');
-    connectedRef.on('value', (snap) => {
+    database.ref('.info/connected').on('value', (snap) => {
         const statusEl = document.getElementById('firebaseStatus');
         if (snap.val() === true) {
             statusEl.innerText = '已連線 ✓';
@@ -251,8 +251,10 @@
         }
     });
 
+    // 初始化日期
     document.getElementById('tradeDate').valueAsDate = new Date();
 
+    // 格式化函數
     const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0, maximumFractionDigits:0 }).format(n);
     const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
     const fmtRound = (n) => Math.round(n);
@@ -261,12 +263,6 @@
         let fee = Math.round(amount * 0.001425);
         return Math.max(fee, 20);
     }
-
-    document.getElementById('price').addEventListener('change', updateFeeDisplay);
-    document.getElementById('price').addEventListener('keyup', updateFeeDisplay);
-    document.getElementById('qty').addEventListener('change', updateFeeDisplay);
-    document.getElementById('qty').addEventListener('keyup', updateFeeDisplay);
-    document.getElementById('type').addEventListener('change', updateFeeDisplay);
 
     function updateFeeDisplay() {
         const type = document.getElementById('type').value;
@@ -314,83 +310,22 @@
             updateFeeDisplay();
         }
     }
-    
-    document.getElementById('tradeForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        if (!currentUID) {
-            alert('請先使用 Google 登入才能新增交易紀錄！');
-            return;
-        }
 
-        const type = document.getElementById('type').value;
-        const symbol = document.getElementById('symbol').value.toUpperCase().trim();
-        const tradeDate = document.getElementById('tradeDate').value;
-        let price = parseFloat(document.getElementById('price').value) || 0;
-        let qty = parseFloat(document.getElementById('qty').value) || 0;
-        let fee = parseFloat(document.getElementById('fee').value) || 0;
-
-        if (!tradeDate || !price) {
-            alert('請填入交易日期和金額');
-            return;
-        }
-
-        if ((type === 'buy' || type === 'sell') && !symbol) {
-            alert('請填入股票代號');
-            return;
-        }
-
-        const newTransaction = { 
-            date: tradeDate,
-            time: new Date().toISOString(),
-            type, 
-            symbol, 
-            price, 
-            qty, 
-            fee 
-        };
-
-        transactionsRef.push(newTransaction);
-        
-        this.reset();
-        document.getElementById('type').value = 'buy';
-        document.getElementById('tradeDate').valueAsDate = new Date();
-        toggleInputs();
-    });
-
-    function deleteTrade(id) {
-        if (!currentUID) {
-            alert('請先登入！');
-            return;
-        }
-        if(confirm('確定刪除此筆紀錄？')) {
-            transactionsRef.child(id).remove();
-        }
-    }
-
-    // 修正：清理 Firebase 監聽器
     function cleanupFirebaseListeners() {
-        if (transactionsRef) {
-            transactionsRef.off();
-        }
-        if (pricesRef) {
-            pricesRef.off();
-        }
+        if (transactionsRef) transactionsRef.off();
+        if (pricesRef) pricesRef.off();
     }
 
     function loadDataFromFirebase() {
         if (!currentUID) {
-            console.log("No user logged in. Data listeners are inactive.");
             transactions = [];
             priceCache = {};
             render();
             return;
         }
         
-        // 修正：先清理舊的監聽器
         cleanupFirebaseListeners();
         
-        // 根據用戶 UID 設定數據庫路徑
         transactionsRef = database.ref(`users/${currentUID}/transactions`);
         pricesRef = database.ref('prices');
         
@@ -435,7 +370,7 @@
                 let soldQty = t.qty;
                 let avgCostForSale = h.qty > 0 ? h.cost / h.qty : t.price;
                 let costPart = avgCostForSale * soldQty;
-                let revenue = (t.price * soldQty) - t.fee; 
+                let revenue = (t.price * soldQty) - t.fee;
                 let profit = revenue - costPart;
 
                 if (!closedPositions[t.symbol]) closedPositions[t.symbol] = { cost: 0, revenue: 0, qty: 0 };
@@ -514,17 +449,6 @@
         }
     }
 
-    function forceUpdatePrices() {
-        const btn = document.getElementById('btnUpdatePrice');
-        btn.innerHTML = '⏳...';
-        btn.classList.add('loading');
-
-        autoUpdatePrices().then(() => {
-            btn.innerHTML = '🔄 更新現價';
-            btn.classList.remove('loading');
-        });
-    }
-
     function updateStatusMessage() {
         const status = document.getElementById('autoUpdateStatus');
         const now = new Date();
@@ -532,13 +456,23 @@
         status.innerText = `更新: ${time}`;
     }
 
-    function manualPrice(sym, val) {
+    window.manualPrice = function(sym, val) {
         if (!currentUID || !pricesRef) {
             alert('請登入後再進行手動價格設定。');
             return;
         }
         pricesRef.child(sym).set({ val: parseFloat(val), src: "手動", time: "" });
-    }
+    };
+
+    window.deleteTrade = function(id) {
+        if (!currentUID) {
+            alert('請先登入！');
+            return;
+        }
+        if(confirm('確定刪除此筆紀錄？')) {
+            transactionsRef.child(id).remove();
+        }
+    };
 
     function render() {
         const { holdings, closedPositions, totalRealized, totalDividends, symbolDividends } = calculateHoldingsAndClosed();
@@ -604,7 +538,7 @@
                 let profit = cp.revenue - cp.cost;
                 let rate = cp.cost ? (profit/cp.cost)*100 : 0;
 
-                if (cp.qty > 0) { 
+                if (cp.qty > 0) {
                      let profitCls = profit >= 0 ? 'text-up' : 'text-down';
                      let rateCls = rate >= 0 ? 'text-up' : 'text-down';
 
@@ -666,33 +600,92 @@
         }
     }
 
-    function signInWithGoogle() {
+    // 事件監聽器設置
+    document.getElementById('price').addEventListener('change', updateFeeDisplay);
+    document.getElementById('price').addEventListener('keyup', updateFeeDisplay);
+    document.getElementById('qty').addEventListener('change', updateFeeDisplay);
+    document.getElementById('qty').addEventListener('keyup', updateFeeDisplay);
+    document.getElementById('type').addEventListener('change', function() {
+        toggleInputs();
+        updateFeeDisplay();
+    });
+
+    document.getElementById('tradeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!currentUID) {
+            alert('請先使用 Google 登入才能新增交易紀錄！');
+            return;
+        }
+
+        const type = document.getElementById('type').value;
+        const symbol = document.getElementById('symbol').value.toUpperCase().trim();
+        const tradeDate = document.getElementById('tradeDate').value;
+        let price = parseFloat(document.getElementById('price').value) || 0;
+        let qty = parseFloat(document.getElementById('qty').value) || 0;
+        let fee = parseFloat(document.getElementById('fee').value) || 0;
+
+        if (!tradeDate || !price) {
+            alert('請填入交易日期和金額');
+            return;
+        }
+
+        if ((type === 'buy' || type === 'sell') && !symbol) {
+            alert('請填入股票代號');
+            return;
+        }
+
+        const newTransaction = { 
+            date: tradeDate,
+            time: new Date().toISOString(),
+            type, 
+            symbol, 
+            price, 
+            qty, 
+            fee 
+        };
+
+        transactionsRef.push(newTransaction);
+        
+        this.reset();
+        document.getElementById('type').value = 'buy';
+        document.getElementById('tradeDate').valueAsDate = new Date();
+        toggleInputs();
+    });
+
+    document.getElementById('btnGoogleSignIn').addEventListener('click', function() {
         const provider = new firebase.auth.GoogleAuthProvider();
-        firebase.auth().signInWithPopup(provider)
+        auth.signInWithPopup(provider)
             .catch((error) => {
                 console.error("Google Sign-In Error: ", error);
                 alert("Google 登入失敗: " + error.message);
             });
-    }
+    });
 
-    function signOutUser() {
+    document.getElementById('btnSignOut').addEventListener('click', function() {
         if(confirm('確定要登出嗎？')) {
-            firebase.auth().signOut().then(() => {
-                console.log("User signed out.");
-            }).catch((error) => {
-                console.error("Sign-Out Error: ", error);
-            });
+            auth.signOut();
         }
-    }
+    });
 
-    // 修正：監聽登入狀態,正確處理定時器
-    firebase.auth().onAuthStateChanged((user) => {
+    document.getElementById('btnUpdatePrice').addEventListener('click', function() {
+        const btn = this;
+        btn.innerHTML = '⏳...';
+        btn.classList.add('loading');
+
+        autoUpdatePrices().then(() => {
+            btn.innerHTML = '🔄 更新現價';
+            btn.classList.remove('loading');
+        });
+    });
+
+    // 監聽登入狀態
+    auth.onAuthStateChanged((user) => {
         const userInfoEl = document.getElementById('userInfo');
         const signInBtn = document.getElementById('btnGoogleSignIn');
         const signOutBtn = document.getElementById('btnSignOut');
         
         if (user) {
-            // 已登入
             currentUID = user.uid;
             const displayName = user.displayName || user.email;
             userInfoEl.innerText = `歡迎, ${displayName.split(' ')[0]}`;
@@ -700,34 +693,27 @@
             signOutBtn.style.display = 'block';
             console.log(`User logged in: ${currentUID}`);
             
-            // 載入該用戶的專屬資料
             loadDataFromFirebase(); 
             
-            // 修正：清除舊定時器,啟動新定時器
             if (priceUpdateInterval) {
                 clearInterval(priceUpdateInterval);
             }
-            autoUpdatePrices(); // 立即更新一次
+            autoUpdatePrices();
             priceUpdateInterval = setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
 
         } else {
-            // 未登入
             currentUID = null;
             userInfoEl.innerText = '請登入';
             signInBtn.style.display = 'block';
             signOutBtn.style.display = 'none';
             console.log("User signed out. Clearing data.");
             
-            // 修正：清除定時器
             if (priceUpdateInterval) {
                 clearInterval(priceUpdateInterval);
                 priceUpdateInterval = null;
             }
             
-            // 清除 Firebase 監聽器
             cleanupFirebaseListeners();
-            
-            // 清除數據並渲染
             transactions = [];
             priceCache = {};
             render();
@@ -738,6 +724,7 @@
 
     // 初始化
     toggleInputs();
+})();
 </script>
 
 </body>
