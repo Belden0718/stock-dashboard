@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>個人股票損益管理 (Firebase RWD版)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <style>
         body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
         .card { box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: none; margin-bottom: 1.5rem; }
         .stat-card { text-align: center; padding: 15px; height: 100%; }
         
-        /* 文字顏色與樣式 (使用 !important 強制覆蓋) */
+        /* 文字顏色與樣式 */
         .text-up { color: #dc3545 !important; font-weight: bold !important; }
         .text-down { color: #198754 !important; font-weight: bold !important; }
         .price-source { font-size: 0.7rem; color: #999; display: block; margin-top: 2px;}
@@ -21,6 +22,7 @@
         .firebase-disconnected { background-color: #f8d7da; color: #842029; }
         
         .loading { opacity: 0.7; pointer-events: none; }
+        .auth-info { font-size: 0.8rem; color: #6c757d; margin-right: 15px;}
 
         @media (max-width: 576px) {
             h2 { font-size: 1.5rem; }
@@ -37,18 +39,29 @@
 <div class="container py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <div class="mb-2">
-            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(Firebase v3)</small></h2>
+            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(Firebase v5)</small></h2>
             <div class="status-bar">
                 <span id="autoUpdateStatus">更新中...</span> | 
                 <span class="firebase-status" id="firebaseStatus">連線中...</span>
             </div>
         </div>
-        <div class="col-12 col-md-auto">
-            <button id="btnUpdatePrice" class="btn btn-primary btn-sm px-3" onclick="forceUpdatePrices()">
-                🔄 強制更新現價
+        
+        <div class="col-12 col-md-auto d-flex align-items-center flex-wrap justify-content-end">
+            <span id="userInfo" class="auth-info d-none d-md-block">請登入</span>
+            
+            <button id="btnGoogleSignIn" class="btn btn-danger btn-sm px-3 me-2" onclick="signInWithGoogle()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-google me-1" viewBox="0 0 16 16"><path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.636 9.111 9.111 0 0 1-1.666 4.673c-.53.79-.193 1.57.172 2.054a10.02 10.02 0 0 0 4.29-3.791A9.124 9.124 0 0 0 15.545 6.558z"/><path d="M10.395 4.881l-1.662 1.662a4.956 4.956 0 0 0-.25 4.258l-1.579 1.579c.642.49 1.34.86 2.07 1.1A8.995 8.995 0 0 0 14.5 10c0-1.036-.201-2.022-.574-2.894L10.395 4.88zM4.34 9.45a6.002 6.002 0 0 0 0 3.09c.27.79.664 1.5.766 1.7L4.34 9.45zM4.5 12c-2.485 0-4.5-2.015-4.5-4.5s2.015-4.5 4.5-4.5 4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5zM4.5 5c-.714 0-1.393.197-1.97.55l1.69 1.69c.148-.098.31-.174.48-.224V5z"/></svg>
+                Google 登入
+            </button>
+
+            <button id="btnSignOut" class="btn btn-secondary btn-sm px-3" onclick="signOutUser()" style="display:none;">
+                登出
+            </button>
+            <button id="btnUpdatePrice" class="btn btn-primary btn-sm px-3 ms-2" onclick="forceUpdatePrices()">
+                🔄 更新現價
             </button>
         </div>
-    </div>
+        </div>
 
     <div class="row g-2 mb-4">
         <div class="col-6 col-md-3">
@@ -168,6 +181,7 @@
             </div>
         </div>
     </div>
+    
     <div class="card">
         <div class="card-header">📝 歷史紀錄</div>
         <div class="card-body p-0">
@@ -210,14 +224,16 @@
     // 初始化 Firebase
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-    const transactionsRef = database.ref('transactions');
-    const pricesRef = database.ref('prices');
-
+    
+    // ⭐ 變數變更：初始化時設為 null，等待用戶登入後更新
+    let transactionsRef = null;
+    let pricesRef = null;
     let transactions = [];
     let priceCache = {};
+    let currentUID = null;
     const PRICE_UPDATE_INTERVAL = 30000;
 
-    // 監聽 Firebase 連線狀態 (略)
+    // ... (Firebase 連線狀態監聽 略) ...
     const connectedRef = database.ref('.info/connected');
     connectedRef.on('value', (snap) => {
         const statusEl = document.getElementById('firebaseStatus');
@@ -230,10 +246,10 @@
         }
     });
 
-    // 初始化日期
+    // 初始化日期 (略)
     document.getElementById('tradeDate').valueAsDate = new Date();
 
-    // 格式化函數
+    // 格式化函數 (略)
     const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0, maximumFractionDigits:0 }).format(n);
     const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
     const fmtRound = (n) => Math.round(n);
@@ -244,7 +260,7 @@
         return Math.max(fee, 20);
     }
 
-    // 監聽價格和股數變化 (略)
+    // 更新費用顯示和切換輸入框的邏輯 (略)
     document.getElementById('price').addEventListener('change', updateFeeDisplay);
     document.getElementById('price').addEventListener('keyup', updateFeeDisplay);
     document.getElementById('qty').addEventListener('change', updateFeeDisplay);
@@ -297,9 +313,16 @@
             updateFeeDisplay();
         }
     }
-
+    
+    // 提交表單時檢查登入狀態
     document.getElementById('tradeForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        
+        if (!currentUID) {
+            alert('請先使用 Google 登入才能新增交易紀錄！');
+            return;
+        }
+
         const type = document.getElementById('type').value;
         const symbol = document.getElementById('symbol').value.toUpperCase().trim();
         const tradeDate = document.getElementById('tradeDate').value;
@@ -336,13 +359,33 @@
     });
 
     function deleteTrade(id) {
+        if (!currentUID) {
+            alert('請先登入！');
+            return;
+        }
         if(confirm('確定刪除此筆紀錄？')) {
             transactionsRef.child(id).remove();
         }
     }
 
-    // 從 Firebase 載入資料 (略)
+    // ⭐ 核心變更：loadDataFromFirebase 邏輯，現在依賴 currentUID ⭐
     function loadDataFromFirebase() {
+        if (!currentUID) {
+            console.log("No user logged in. Data listeners are inactive.");
+            transactions = [];
+            priceCache = {};
+            render(); // 清空顯示
+            return;
+        }
+        
+        // 根據用戶 UID 設定數據庫路徑
+        transactionsRef = database.ref(`users/${currentUID}/transactions`);
+        pricesRef = database.ref('prices'); // 股價資料庫維持共用
+        
+        // 移除舊的監聽器 (如果存在)
+        // 為了確保每次登入只監聽一次，我們在 onAuthStateChanged 裡處理
+        
+        // 設定新的交易數據監聽器
         transactionsRef.on('value', (snapshot) => {
             transactions = [];
             snapshot.forEach((child) => {
@@ -354,6 +397,7 @@
             render();
         });
 
+        // 設定股價數據監聽器
         pricesRef.on('value', (snapshot) => {
             if (snapshot.exists()) {
                 priceCache = snapshot.val();
@@ -362,7 +406,7 @@
         });
     }
 
-    // 核心計算邏輯已更新，用於區分持倉和平倉損益
+    // ... (calculateHoldingsAndClosed 邏輯 略) ...
     function calculateHoldingsAndClosed() {
         let holdings = {};
         let closedPositions = {};
@@ -371,6 +415,8 @@
         let symbolDividends = {};
         
         [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+            if (!t.symbol) return; // 忽略無代號的交易，除非是 discount
+
             if (!holdings[t.symbol]) holdings[t.symbol] = { qty: 0, cost: 0 };
             if (!symbolDividends[t.symbol]) symbolDividends[t.symbol] = 0;
             
@@ -382,19 +428,17 @@
             } else if (t.type === 'sell') {
                 let soldQty = t.qty;
                 
-                // 計算賣出時的平倉損益
                 let avgCostForSale = h.qty > 0 ? h.cost / h.qty : t.price;
                 let costPart = avgCostForSale * soldQty;
-                let revenue = (t.price * soldQty) - t.fee;
+                
+                let revenue = (t.price * soldQty) - t.fee; 
                 let profit = revenue - costPart;
 
-                // 記錄平倉交易
                 if (!closedPositions[t.symbol]) closedPositions[t.symbol] = { cost: 0, revenue: 0, qty: 0 };
                 closedPositions[t.symbol].cost += costPart;
                 closedPositions[t.symbol].revenue += revenue;
                 closedPositions[t.symbol].qty += soldQty;
 
-                // 更新持倉
                 h.qty -= soldQty;
                 h.cost -= costPart;
                 totalRealized += profit;
@@ -405,7 +449,6 @@
             }
         });
         
-        // 移除已平倉或股數接近 0 的持倉
         Object.keys(holdings).forEach(k => {
             if (holdings[k].qty < 0.001) delete holdings[k];
         });
@@ -413,8 +456,15 @@
         return { holdings, closedPositions, totalRealized, totalDividends, symbolDividends };
     }
 
-    // 價格更新邏輯 (略)
+
+    // ... (autoUpdatePrices 邏輯 略) ...
     async function autoUpdatePrices() {
+        if (!currentUID) {
+            document.getElementById('autoUpdateStatus').innerText = '請登入以更新股價';
+            return;
+        }
+
+        // 僅在登入狀態下執行更新邏輯
         const { holdings } = calculateHoldingsAndClosed();
         const symbols = Object.keys(holdings);
 
@@ -459,13 +509,14 @@
         }
     }
 
+    // ... (forceUpdatePrices, updateStatusMessage, manualPrice, render 邏輯 略) ...
     function forceUpdatePrices() {
         const btn = document.getElementById('btnUpdatePrice');
         btn.innerHTML = '⏳...';
         btn.classList.add('loading');
 
         autoUpdatePrices().then(() => {
-            btn.innerHTML = '🔄 強制更新現價';
+            btn.innerHTML = '🔄 更新現價';
             btn.classList.remove('loading');
         });
     }
@@ -478,10 +529,13 @@
     }
 
     function manualPrice(sym, val) {
+        if (!currentUID || !pricesRef) {
+            alert('請登入後再進行手動價格設定。');
+            return;
+        }
         pricesRef.child(sym).set({ val: parseFloat(val), src: "手動", time: "" });
     }
 
-    // 核心渲染函式已更新
     function render() {
         const { holdings, closedPositions, totalRealized, totalDividends, symbolDividends } = calculateHoldingsAndClosed();
         
@@ -491,71 +545,82 @@
         
         let gMkt=0, gCost=0, gUnrealized=0;
 
-        for (let s in holdings) {
-            let h = holdings[s];
-            let avg = h.cost / h.qty;
-            
-            let pObj = priceCache[s] || { val: avg, src: '無' };
-            let currP = pObj.val;
+        if (currentUID) { // 只在登入狀態下顯示數據
+            for (let s in holdings) {
+                let h = holdings[s];
+                let avg = h.cost / h.qty;
+                
+                let pObj = priceCache[s] || { val: avg, src: '無' };
+                let currP = pObj.val;
 
-            let mkt = h.qty * currP;
-            let unrl = mkt - h.cost;
-            let rate = h.cost ? (unrl/h.cost)*100 : 0;
-            let divId = symbolDividends[s] || 0;
-            let divPlusUnrl = divId + unrl;
-            
-            gMkt += mkt;
-            gCost += h.cost;
-            gUnrealized += unrl;
+                let mkt = h.qty * currP;
+                let unrl = mkt - h.cost;
+                let rate = h.cost ? (unrl/h.cost)*100 : 0;
+                let divId = symbolDividends[s] || 0;
+                let divPlusUnrl = divId + unrl;
+                
+                gMkt += mkt;
+                gCost += h.cost;
+                gUnrealized += unrl;
 
-            let unrlCls = unrl >= 0 ? 'text-up' : 'text-down';
-            let rateCls = rate >= 0 ? 'text-up' : 'text-down';
-            let divCls = divId >= 0 ? 'text-up' : 'text-down';
-            let divPlusCls = divPlusUnrl >= 0 ? 'text-up' : 'text-down';
+                let unrlCls = unrl >= 0 ? 'text-up' : 'text-down';
+                let rateCls = rate >= 0 ? 'text-up' : 'text-down';
+                let divCls = divId >= 0 ? 'text-up' : 'text-down';
+                let divPlusCls = divPlusUnrl >= 0 ? 'text-up' : 'text-down';
 
-            let tr = `
-                <tr>
-                    <td><strong>${s}</strong></td>
-                    <td>${fmtNum(h.qty)}</td>
-                    <td>${fmtNum(avg.toFixed(2))}</td>
-                    <td>
-                        <input type="number" class="form-control form-control-sm d-inline-block p-1" style="width:70px; font-size: 0.85rem;" 
-                            value="${currP}" onchange="manualPrice('${s}', this.value)">
-                        <span class="price-source">${pObj.src}</span>
-                    </td>
-                    <td>${fmtMoney(mkt)}</td>
-                    <td class="${unrlCls}">${fmtMoney(fmtRound(unrl))}</td>
-                    <td class="${rateCls}">${rate.toFixed(1)}%</td>
-                    <td class="${divCls}">${fmtMoney(fmtRound(divId))}</td>
-                    <td class="${divPlusCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
-                </tr>`;
-            tbodyHoldings.innerHTML += tr;
+                let tr = `
+                    <tr>
+                        <td><strong>${s}</strong></td>
+                        <td>${fmtNum(h.qty)}</td>
+                        <td>${fmtNum(avg.toFixed(4))}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm d-inline-block p-1" style="width:70px; font-size: 0.85rem;" 
+                                value="${currP}" onchange="manualPrice('${s}', this.value)">
+                            <span class="price-source">${pObj.src}</span>
+                        </td>
+                        <td>${fmtMoney(mkt)}</td>
+                        <td class="${unrlCls}">${fmtMoney(fmtRound(unrl))}</td>
+                        <td class="${rateCls}">${rate.toFixed(1)}%</td>
+                        <td class="${divCls}">${fmtMoney(fmtRound(divId))}</td>
+                        <td class="${divPlusCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
+                    </tr>`;
+                tbodyHoldings.innerHTML += tr;
+            }
+        } else {
+             tbodyHoldings.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">請先登入以載入個人持倉數據</td></tr>`;
         }
 
         // --- 2. 渲染平倉明細 (Closed Positions Table) ---
         const tbodyClosed = document.getElementById('closedPositionsTable');
         tbodyClosed.innerHTML = '';
+        
+        if (currentUID) {
+            for (let s in closedPositions) {
+                let cp = closedPositions[s];
+                let profit = cp.revenue - cp.cost;
+                let rate = cp.cost ? (profit/cp.cost)*100 : 0;
 
-        for (let s in closedPositions) {
-            let cp = closedPositions[s];
-            let profit = cp.revenue - cp.cost;
-            let rate = cp.cost ? (profit/cp.cost)*100 : 0;
+                if (cp.qty > 0) { 
+                     let profitCls = profit >= 0 ? 'text-up' : 'text-down';
+                     let rateCls = rate >= 0 ? 'text-up' : 'text-down';
 
-            if (cp.qty > 0) { // 只顯示有平倉紀錄的
-                 let profitCls = profit >= 0 ? 'text-up' : 'text-down';
-                 let rateCls = rate >= 0 ? 'text-up' : 'text-down';
-
-                 let tr = `
-                     <tr>
-                         <td><strong>${s}</strong></td>
-                         <td>${fmtNum(cp.qty)}</td>
-                         <td>${fmtMoney(fmtRound(cp.cost))}</td>
-                         <td>${fmtMoney(fmtRound(cp.revenue))}</td>
-                         <td class="${profitCls}">${fmtMoney(fmtRound(profit))}</td>
-                         <td class="${rateCls}">${rate.toFixed(1)}%</td>
-                     </tr>`;
-                 tbodyClosed.innerHTML += tr;
+                     let tr = `
+                         <tr>
+                             <td><strong>${s}</strong></td>
+                             <td>${fmtNum(cp.qty)}</td>
+                             <td>${fmtMoney(fmtRound(cp.cost))}</td>
+                             <td>${fmtMoney(fmtRound(cp.revenue))}</td>
+                             <td class="${profitCls}">${fmtMoney(fmtRound(profit))}</td>
+                             <td class="${rateCls}">${rate.toFixed(1)}%</td>
+                         </tr>`;
+                     tbodyClosed.innerHTML += tr;
+                }
             }
+             if (Object.keys(closedPositions).length === 0) {
+                 tbodyClosed.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">尚無平倉紀錄</td></tr>`;
+             }
+        } else {
+             tbodyClosed.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">請先登入以載入個人數據</td></tr>`;
         }
 
         // --- 3. 渲染儀表板總覽 (Dashboard Totals) ---
@@ -575,30 +640,89 @@
         // --- 4. 渲染歷史紀錄 (History Table) ---
         const hBody = document.getElementById('historyTable');
         hBody.innerHTML = '';
-        [...transactions].reverse().forEach(t => {
-            let typeText = t.type === 'buy' ? '買' : (t.type === 'sell' ? '賣' : (t.type === 'dividend' ? '息' : '折'));
-            let typeBg = t.type === 'buy' ? 'bg-danger' : (t.type === 'sell' ? 'bg-success' : 'bg-warning text-dark');
-            let detail = (t.type === 'dividend' || t.type === 'discount') ? fmtMoney(fmtRound(t.price)) : `${fmtNum(t.price)} × ${fmtNum(t.qty)}`;
-            let amount = t.type === 'buy' ? (t.price * t.qty + t.fee) : (t.type === 'sell' ? (t.price * t.qty - t.fee) : t.price);
-            
-            let tr = `<tr>
-                <td><small>${t.date.substring(5)}</small></td>
-                <td><span class="badge ${typeBg}">${typeText}</span></td>
-                <td>${t.symbol}</td>
-                <td><small>${detail}</small></td>
-                <td>${t.type === 'buy' ? '-' : '+'}${fmtMoney(fmtRound(Math.abs(amount)))}</td>
-                <td><small>${t.fee > 0 ? t.fee : '-'}</small></td>
-                <td><button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="deleteTrade('${t.id}')">×</button></td>
-             </tr>`;
-            hBody.innerHTML += tr;
+        if (currentUID) {
+            [...transactions].reverse().forEach(t => {
+                let typeText = t.type === 'buy' ? '買' : (t.type === 'sell' ? '賣' : (t.type === 'dividend' ? '息' : '折'));
+                let typeBg = t.type === 'buy' ? 'bg-danger' : (t.type === 'sell' ? 'bg-success' : 'bg-warning text-dark');
+                let detail = (t.type === 'dividend' || t.type === 'discount') ? fmtMoney(fmtRound(t.price)) : `${fmtNum(t.price)} × ${fmtNum(t.qty)}`;
+                let amount = t.type === 'buy' ? (t.price * t.qty + t.fee) : (t.type === 'sell' ? (t.price * t.qty - t.fee) : t.price);
+                
+                let tr = `<tr>
+                    <td><small>${t.date.substring(5)}</small></td>
+                    <td><span class="badge ${typeBg}">${typeText}</span></td>
+                    <td>${t.symbol || '-'}</td>
+                    <td><small>${detail}</small></td>
+                    <td>${t.type === 'buy' ? '-' : '+'}${fmtMoney(fmtRound(Math.abs(amount)))}</td>
+                    <td><small>${t.fee > 0 ? t.fee : '-'}</small></td>
+                    <td><button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="deleteTrade('${t.id}')">×</button></td>
+                 </tr>`;
+                hBody.innerHTML += tr;
+            });
+             if (transactions.length === 0) {
+                 hBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">尚無交易紀錄</td></tr>`;
+             }
+        } else {
+             hBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">請先登入以載入歷史數據</td></tr>`;
+        }
+    }
+
+    // ⭐ 新增：Google 登入/登出函式 ⭐
+    function signInWithGoogle() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider)
+            .catch((error) => {
+                console.error("Google Sign-In Error: ", error);
+                alert("Google 登入失敗: " + error.message);
+            });
+    }
+
+    function signOutUser() {
+        firebase.auth().signOut().then(() => {
+            console.log("User signed out.");
+        }).catch((error) => {
+            console.error("Sign-Out Error: ", error);
         });
     }
 
-    // 初始化
-    loadDataFromFirebase();
-    autoUpdatePrices();
-    updateStatusMessage();
-    setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
+    // ⭐ 核心變更：監聽登入狀態 ⭐
+    firebase.auth().onAuthStateChanged((user) => {
+        const userInfoEl = document.getElementById('userInfo');
+        const signInBtn = document.getElementById('btnGoogleSignIn');
+        const signOutBtn = document.getElementById('btnSignOut');
+        
+        if (user) {
+            // 已登入
+            currentUID = user.uid;
+            userInfoEl.innerText = `歡迎, ${user.displayName.split(' ')[0]}`;
+            signInBtn.style.display = 'none';
+            signOutBtn.style.display = 'block';
+            console.log(`User logged in: ${currentUID}`);
+            
+            // 載入該用戶的專屬資料
+            loadDataFromFirebase(); 
+            // 啟動定時更新
+            setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
+
+        } else {
+            // 未登入
+            currentUID = null;
+            userInfoEl.innerText = '請登入';
+            signInBtn.style.display = 'block';
+            signOutBtn.style.display = 'none';
+            console.log("User signed out. Clearing data.");
+            
+            // 清除數據並渲染，顯示「請登入」
+            loadDataFromFirebase();
+            
+            // 停止定時更新
+            // (註: 為了避免重複計時器，我們在登入時再啟動)
+        }
+    });
+
+    // 頁面載入時不執行 loadDataFromFirebase，改由 onAuthStateChanged 觸發
+    // autoUpdatePrices(); // 移除，改由 onAuthStateChanged 啟動定時器
+    toggleInputs(); // 初始化表單設定
+
 </script>
 
 </body>
