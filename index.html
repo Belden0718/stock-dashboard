@@ -3,63 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>個人股票損益管理 (Firebase RWD版)</title>
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="個人股票投資管理系統，支援離線使用">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="投資看板">
+    
+    <title>個人股票損益管理</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
-        .card { box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: none; margin-bottom: 1.5rem; }
-        .stat-card { text-align: center; padding: 15px; height: 100%; }
+        :root {
+            --primary-color: #667eea;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+        }
         
-        .text-up { color: #dc3545 !important; font-weight: bold !important; }
-        .text-down { color: #198754 !important; font-weight: bold !important; }
+        body { 
+            background-color: #f8f9fa; 
+            font-family: "Microsoft JhengHei", -apple-system, sans-serif;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        .card { 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+            border: none; 
+            margin-bottom: 1rem;
+            border-radius: 12px;
+        }
+        
+        .stat-card { 
+            text-align: center; 
+            padding: 1rem; 
+            height: 100%;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:active {
+            transform: scale(0.98);
+        }
+        
+        .text-up { color: var(--danger-color) !important; font-weight: bold !important; }
+        .text-down { color: var(--success-color) !important; font-weight: bold !important; }
         .price-source { font-size: 0.7rem; color: #999; display: block; margin-top: 2px;}
         
-        .status-bar { font-size: 0.8rem; color: #6c757d; margin-top: 5px; }
-        .firebase-status { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;}
+        .status-bar { 
+            font-size: 0.75rem; 
+            color: #6c757d; 
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .firebase-status { 
+            padding: 3px 8px; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+        
         .firebase-connected { background-color: #d1e7dd; color: #0f5132; }
         .firebase-disconnected { background-color: #f8d7da; color: #842029; }
         
         .loading { opacity: 0.7; pointer-events: none; }
-        .auth-info { font-size: 0.8rem; color: #6c757d; margin-right: 15px;}
-
+        
+        /* 頂部按鈕區優化 */
+        .header-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        
+        .user-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        
+        .user-info {
+            font-size: 0.8rem;
+            color: #6c757d;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .btn-group-actions {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        
+        .btn-group-actions .btn {
+            flex: 1;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            white-space: nowrap;
+        }
+        
+        /* PWA 安裝提示 */
+        .install-prompt {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 1000;
+            max-width: 90%;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        
+        .install-prompt.show {
+            display: block;
+        }
+        
+        /* 平板以上設備 */
+        @media (min-width: 768px) {
+            .header-actions {
+                flex-direction: row;
+                align-items: center;
+                justify-content: flex-end;
+                width: auto;
+            }
+            
+            .user-section {
+                width: auto;
+                flex-direction: row;
+            }
+            
+            .btn-group-actions {
+                width: auto;
+            }
+            
+            .btn-group-actions .btn {
+                flex: 0 0 auto;
+            }
+            
+            .user-info {
+                flex: 0 0 auto;
+            }
+        }
+        
+        /* 手機優化 */
         @media (max-width: 576px) {
-            h2 { font-size: 1.5rem; }
-            .stat-card h3 { font-size: 1.5rem; }
-            .stat-card h5 { font-size: 0.9rem; }
-            .btn { width: 100%; margin-top: 5px; }
+            .container { padding-left: 0.75rem; padding-right: 0.75rem; }
+            h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+            .stat-card h3 { font-size: 1.4rem; }
+            .stat-card h5 { font-size: 0.85rem; }
+            .card-header { font-size: 0.9rem; padding: 0.75rem 1rem; }
+            .table { font-size: 0.85rem; }
+            
+            /* 確保按鈕對齊 */
+            .btn-group-actions {
+                flex-direction: column;
+            }
+            
+            .btn-group-actions .btn {
+                width: 100%;
+            }
+        }
+        
+        /* 表格優化 */
+        .table-responsive {
+            border-radius: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* 卡片動畫 */
+        .card {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
+<!-- PWA 安裝提示 -->
+<div id="installPrompt" class="install-prompt">
+    <div class="d-flex align-items-center justify-content-between gap-3">
+        <div>
+            <strong>📱 安裝應用程式</strong>
+            <p class="mb-0 small text-muted">加入主畫面以便快速存取</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm" id="installBtn">安裝</button>
+            <button class="btn btn-outline-secondary btn-sm" id="dismissBtn">稍後</button>
+        </div>
+    </div>
+</div>
+
 <div class="container py-3">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-        <div class="mb-2">
-            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(Firebase v7)</small></h2>
+    <!-- 頂部標題與按鈕 -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
+        <div class="flex-shrink-0">
+            <h2 class="mb-1">📈 投資看板</h2>
             <div class="status-bar">
-                <span id="autoUpdateStatus">等待登入...</span> | 
+                <span id="autoUpdateStatus">等待登入...</span>
                 <span class="firebase-status" id="firebaseStatus">連線中...</span>
             </div>
         </div>
         
-        <div class="col-12 col-md-auto d-flex align-items-center flex-wrap justify-content-end">
-            <span id="userInfo" class="auth-info d-none d-md-block">請登入</span>
+        <div class="header-actions">
+            <div class="user-section">
+                <span id="userInfo" class="user-info d-none d-md-block">請登入</span>
+            </div>
             
-            <button id="btnGoogleSignIn" class="btn btn-danger btn-sm px-3 me-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-google me-1" viewBox="0 0 16 16"><path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.636c0 1.64-.42 3.17-1.15 4.51a9.03 9.03 0 0 1-3.14 3.29 8.78 8.78 0 0 1-4.42 1.18A9 9 0 1 1 12 3.48a8.93 8.93 0 0 1 2.96 2.19l-3.02 2.9a5.37 5.37 0 0 0-3.94-1.69 5.52 5.52 0 1 0 3.94 9.4 4.48 4.48 0 0 0 2.93-2.96H8.03v-3.8h7.52z"/></svg>
-                Google 登入
-            </button>
+            <div class="btn-group-actions">
+                <button id="btnGoogleSignIn" class="btn btn-danger btn-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.636c0 1.64-.42 3.17-1.15 4.51a9.03 9.03 0 0 1-3.14 3.29 8.78 8.78 0 0 1-4.42 1.18A9 9 0 1 1 12 3.48a8.93 8.93 0 0 1 2.96 2.19l-3.02 2.9a5.37 5.37 0 0 0-3.94-1.69 5.52 5.52 0 1 0 3.94 9.4 4.48 4.48 0 0 0 2.93-2.96H8.03v-3.8h7.52z"/>
+                    </svg>
+                    <span class="d-none d-sm-inline ms-1">Google 登入</span>
+                    <span class="d-inline d-sm-none ms-1">登入</span>
+                </button>
 
-            <button id="btnSignOut" class="btn btn-secondary btn-sm px-3" style="display:none;">
-                登出
-            </button>
-            <button id="btnUpdatePrice" class="btn btn-primary btn-sm px-3 ms-2">
-                🔄 更新現價
-            </button>
+                <button id="btnSignOut" class="btn btn-secondary btn-sm" style="display:none;">
+                    登出
+                </button>
+                
+                <button id="btnUpdatePrice" class="btn btn-primary btn-sm">
+                    🔄 <span class="d-none d-sm-inline">更新</span>
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="row g-2 mb-4">
+    <!-- 統計卡片 -->
+    <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
             <div class="card stat-card">
                 <h5 class="text-muted">總市值</h5>
@@ -90,10 +283,10 @@
         </div>
     </div>
 
+    <!-- 新增交易表單 -->
     <div class="card">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <span>➕ 新增交易</span>
-            <small>請填寫下方資訊</small>
+        <div class="card-header bg-dark text-white">
+            ➕ 新增交易
         </div>
         <div class="card-body">
             <form id="tradeForm" class="row g-2">
@@ -133,6 +326,7 @@
         </div>
     </div>
 
+    <!-- 持倉明細 -->
     <div class="card">
         <div class="card-header">📊 目前持倉明細</div>
         <div class="card-body p-0">
@@ -143,7 +337,7 @@
                             <th>股票</th>
                             <th>股數</th>
                             <th>均價</th>
-                            <th>現價(手動)</th>
+                            <th>現價</th>
                             <th>市值</th>
                             <th>未實現損益</th>
                             <th>報酬率 %</th>
@@ -159,6 +353,7 @@
         </div>
     </div>
 
+    <!-- 平倉明細 -->
     <div class="card">
         <div class="card-header">💸 平倉明細 (已實現損益)</div>
         <div class="card-body p-0">
@@ -182,6 +377,7 @@
         </div>
     </div>
     
+    <!-- 歷史紀錄 -->
     <div class="card">
         <div class="card-header">📝 歷史紀錄</div>
         <div class="card-body p-0">
@@ -216,6 +412,41 @@
 (function() {
     'use strict';
     
+    // PWA 安裝提示
+    let deferredPrompt;
+    const installPrompt = document.getElementById('installPrompt');
+    const installBtn = document.getElementById('installBtn');
+    const dismissBtn = document.getElementById('dismissBtn');
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installPrompt.classList.add('show');
+    });
+    
+    installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response: ${outcome}`);
+            deferredPrompt = null;
+            installPrompt.classList.remove('show');
+        }
+    });
+    
+    dismissBtn.addEventListener('click', () => {
+        installPrompt.classList.remove('show');
+    });
+    
+    // 註冊 Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker registered'))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        });
+    }
+    
     const firebaseConfig = {
       apiKey: "AIzaSyDqE-QYqXgZ1xZ_oKIIGIypDzB4iKIvwCk",
       authDomain: "stock-dashboard-a1b1c.firebaseapp.com",
@@ -239,7 +470,6 @@
     let priceUpdateInterval = null;
     const PRICE_UPDATE_INTERVAL = 30000;
 
-    // Firebase 連線狀態監聽
     database.ref('.info/connected').on('value', (snap) => {
         const statusEl = document.getElementById('firebaseStatus');
         if (snap.val() === true) {
@@ -251,10 +481,8 @@
         }
     });
 
-    // 初始化日期
     document.getElementById('tradeDate').valueAsDate = new Date();
 
-    // 格式化函數
     const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0, maximumFractionDigits:0 }).format(n);
     const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
     const fmtRound = (n) => Math.round(n);
@@ -452,7 +680,7 @@
     function updateStatusMessage() {
         const status = document.getElementById('autoUpdateStatus');
         const now = new Date();
-        const time = now.toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+        const time = now.toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
         status.innerText = `更新: ${time}`;
     }
 
@@ -600,7 +828,6 @@
         }
     }
 
-    // 事件監聽器設置
     document.getElementById('price').addEventListener('change', updateFeeDisplay);
     document.getElementById('price').addEventListener('keyup', updateFeeDisplay);
     document.getElementById('qty').addEventListener('change', updateFeeDisplay);
@@ -670,16 +897,15 @@
 
     document.getElementById('btnUpdatePrice').addEventListener('click', function() {
         const btn = this;
-        btn.innerHTML = '⏳...';
+        btn.innerHTML = '⏳';
         btn.classList.add('loading');
 
         autoUpdatePrices().then(() => {
-            btn.innerHTML = '🔄 更新現價';
+            btn.innerHTML = '🔄 <span class="d-none d-sm-inline">更新</span>';
             btn.classList.remove('loading');
         });
     });
 
-    // 監聽登入狀態
     auth.onAuthStateChanged((user) => {
         const userInfoEl = document.getElementById('userInfo');
         const signInBtn = document.getElementById('btnGoogleSignIn');
@@ -691,13 +917,10 @@
             userInfoEl.innerText = `歡迎, ${displayName.split(' ')[0]}`;
             signInBtn.style.display = 'none';
             signOutBtn.style.display = 'block';
-            console.log(`User logged in: ${currentUID}`);
             
             loadDataFromFirebase(); 
             
-            if (priceUpdateInterval) {
-                clearInterval(priceUpdateInterval);
-            }
+            if (priceUpdateInterval) clearInterval(priceUpdateInterval);
             autoUpdatePrices();
             priceUpdateInterval = setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
 
@@ -706,7 +929,6 @@
             userInfoEl.innerText = '請登入';
             signInBtn.style.display = 'block';
             signOutBtn.style.display = 'none';
-            console.log("User signed out. Clearing data.");
             
             if (priceUpdateInterval) {
                 clearInterval(priceUpdateInterval);
@@ -722,7 +944,6 @@
         }
     });
 
-    // 初始化
     toggleInputs();
 })();
 </script>
