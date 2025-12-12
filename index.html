@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>個人股票損益管理 (Firebase RWD版)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <style>
         body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
         .card { box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: none; margin-bottom: 1.5rem; }
@@ -39,9 +38,9 @@
 <div class="container py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <div class="mb-2">
-            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(Firebase v5)</small></h2>
+            <h2 class="mb-1">📈 投資看板 <small class="text-muted fs-6">(Firebase v6)</small></h2>
             <div class="status-bar">
-                <span id="autoUpdateStatus">更新中...</span> | 
+                <span id="autoUpdateStatus">等待登入...</span> | 
                 <span class="firebase-status" id="firebaseStatus">連線中...</span>
             </div>
         </div>
@@ -50,7 +49,7 @@
             <span id="userInfo" class="auth-info d-none d-md-block">請登入</span>
             
             <button id="btnGoogleSignIn" class="btn btn-danger btn-sm px-3 me-2" onclick="signInWithGoogle()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-google me-1" viewBox="0 0 16 16"><path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.636 9.111 9.111 0 0 1-1.666 4.673c-.53.79-.193 1.57.172 2.054a10.02 10.02 0 0 0 4.29-3.791A9.124 9.124 0 0 0 15.545 6.558z"/><path d="M10.395 4.881l-1.662 1.662a4.956 4.956 0 0 0-.25 4.258l-1.579 1.579c.642.49 1.34.86 2.07 1.1A8.995 8.995 0 0 0 14.5 10c0-1.036-.201-2.022-.574-2.894L10.395 4.88zM4.34 9.45a6.002 6.002 0 0 0 0 3.09c.27.79.664 1.5.766 1.7L4.34 9.45zM4.5 12c-2.485 0-4.5-2.015-4.5-4.5s2.015-4.5 4.5-4.5 4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5zM4.5 5c-.714 0-1.393.197-1.97.55l1.69 1.69c.148-.098.31-.174.48-.224V5z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-google me-1" viewBox="0 0 16 16"><path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.636c0 1.64-.42 3.17-1.15 4.51a9.03 9.03 0 0 1-3.14 3.29 8.78 8.78 0 0 1-4.42 1.18A9 9 0 1 1 12 3.48a8.93 8.93 0 0 1 2.96 2.19l-3.02 2.9a5.37 5.37 0 0 0-3.94-1.69 5.52 5.52 0 1 0 3.94 9.4 4.48 4.48 0 0 0 2.93-2.96H8.03v-3.8h7.52z"/></svg>
                 Google 登入
             </button>
 
@@ -61,34 +60,34 @@
                 🔄 更新現價
             </button>
         </div>
-        </div>
+    </div>
 
     <div class="row g-2 mb-4">
         <div class="col-6 col-md-3">
             <div class="card stat-card">
                 <h5 class="text-muted">總市值</h5>
-                <h3 id="totalMarketValue">0</h3>
+                <h3 id="totalMarketValue">$0</h3>
                 <small class="text-muted">現值</small>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card stat-card">
                 <h5 class="text-muted">總成本</h5>
-                <h3 id="totalCost">0</h3>
+                <h3 id="totalCost">$0</h3>
                 <small class="text-muted">本金</small>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card stat-card">
                 <h5 class="text-muted">未實現</h5>
-                <h3 id="totalUnrealizedPL">0</h3>
+                <h3 id="totalUnrealizedPL">$0</h3>
                 <small id="totalUnrealizedRate">0%</small>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card stat-card">
                 <h5 class="text-muted">已實現+股利</h5>
-                <h3 id="totalRealizedPL">0</h3>
+                <h3 id="totalRealizedPL">$0</h3>
                 <small class="text-muted">獲利</small>
             </div>
         </div>
@@ -155,7 +154,9 @@
                             <th>含息總益</th>
                         </tr>
                     </thead>
-                    <tbody id="holdingsTable"></tbody>
+                    <tbody id="holdingsTable">
+                        <tr><td colspan="9" class="text-center text-muted py-4">請先登入以載入個人持倉數據</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -176,7 +177,9 @@
                             <th>報酬率 %</th>
                         </tr>
                     </thead>
-                    <tbody id="closedPositionsTable"></tbody>
+                    <tbody id="closedPositionsTable">
+                        <tr><td colspan="6" class="text-center text-muted py-3">請先登入以載入個人數據</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -198,18 +201,21 @@
                             <th>操作</th>
                         </tr>
                     </thead>
-                    <tbody id="historyTable"></tbody>
+                    <tbody id="historyTable">
+                        <tr><td colspan="7" class="text-center text-muted py-3">請先登入以載入歷史數據</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
 
+<!-- 修正：將所有 Firebase SDK 一起載入 -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
 <script>
-    // ⚠️ Firebase 設定
     const firebaseConfig = {
       apiKey: "AIzaSyDqE-QYqXgZ1xZ_oKIIGIypDzB4iKIvwCk",
       authDomain: "stock-dashboard-a1b1c.firebaseapp.com",
@@ -221,19 +227,18 @@
       measurementId: "G-WQ32XFZQSQ"
     };
 
-    // 初始化 Firebase
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     
-    // ⭐ 變數變更：初始化時設為 null，等待用戶登入後更新
     let transactionsRef = null;
     let pricesRef = null;
     let transactions = [];
     let priceCache = {};
     let currentUID = null;
+    let priceUpdateInterval = null; // 修正：保存定時器 ID
     const PRICE_UPDATE_INTERVAL = 30000;
 
-    // ... (Firebase 連線狀態監聽 略) ...
+    // Firebase 連線狀態監聽
     const connectedRef = database.ref('.info/connected');
     connectedRef.on('value', (snap) => {
         const statusEl = document.getElementById('firebaseStatus');
@@ -246,21 +251,17 @@
         }
     });
 
-    // 初始化日期 (略)
     document.getElementById('tradeDate').valueAsDate = new Date();
 
-    // 格式化函數 (略)
     const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0, maximumFractionDigits:0 }).format(n);
     const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
     const fmtRound = (n) => Math.round(n);
 
-    // 計算手續費 (略)
     function calculateFee(amount) {
         let fee = Math.round(amount * 0.001425);
         return Math.max(fee, 20);
     }
 
-    // 更新費用顯示和切換輸入框的邏輯 (略)
     document.getElementById('price').addEventListener('change', updateFeeDisplay);
     document.getElementById('price').addEventListener('keyup', updateFeeDisplay);
     document.getElementById('qty').addEventListener('change', updateFeeDisplay);
@@ -314,7 +315,6 @@
         }
     }
     
-    // 提交表單時檢查登入狀態
     document.getElementById('tradeForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -368,24 +368,32 @@
         }
     }
 
-    // ⭐ 核心變更：loadDataFromFirebase 邏輯，現在依賴 currentUID ⭐
+    // 修正：清理 Firebase 監聽器
+    function cleanupFirebaseListeners() {
+        if (transactionsRef) {
+            transactionsRef.off();
+        }
+        if (pricesRef) {
+            pricesRef.off();
+        }
+    }
+
     function loadDataFromFirebase() {
         if (!currentUID) {
             console.log("No user logged in. Data listeners are inactive.");
             transactions = [];
             priceCache = {};
-            render(); // 清空顯示
+            render();
             return;
         }
         
+        // 修正：先清理舊的監聽器
+        cleanupFirebaseListeners();
+        
         // 根據用戶 UID 設定數據庫路徑
         transactionsRef = database.ref(`users/${currentUID}/transactions`);
-        pricesRef = database.ref('prices'); // 股價資料庫維持共用
+        pricesRef = database.ref('prices');
         
-        // 移除舊的監聽器 (如果存在)
-        // 為了確保每次登入只監聽一次，我們在 onAuthStateChanged 裡處理
-        
-        // 設定新的交易數據監聽器
         transactionsRef.on('value', (snapshot) => {
             transactions = [];
             snapshot.forEach((child) => {
@@ -397,7 +405,6 @@
             render();
         });
 
-        // 設定股價數據監聽器
         pricesRef.on('value', (snapshot) => {
             if (snapshot.exists()) {
                 priceCache = snapshot.val();
@@ -406,7 +413,6 @@
         });
     }
 
-    // ... (calculateHoldingsAndClosed 邏輯 略) ...
     function calculateHoldingsAndClosed() {
         let holdings = {};
         let closedPositions = {};
@@ -415,7 +421,7 @@
         let symbolDividends = {};
         
         [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
-            if (!t.symbol) return; // 忽略無代號的交易，除非是 discount
+            if (!t.symbol && t.type !== 'discount') return;
 
             if (!holdings[t.symbol]) holdings[t.symbol] = { qty: 0, cost: 0 };
             if (!symbolDividends[t.symbol]) symbolDividends[t.symbol] = 0;
@@ -427,10 +433,8 @@
                 h.cost += (t.price * t.qty) + t.fee;
             } else if (t.type === 'sell') {
                 let soldQty = t.qty;
-                
                 let avgCostForSale = h.qty > 0 ? h.cost / h.qty : t.price;
                 let costPart = avgCostForSale * soldQty;
-                
                 let revenue = (t.price * soldQty) - t.fee; 
                 let profit = revenue - costPart;
 
@@ -456,19 +460,19 @@
         return { holdings, closedPositions, totalRealized, totalDividends, symbolDividends };
     }
 
-
-    // ... (autoUpdatePrices 邏輯 略) ...
     async function autoUpdatePrices() {
         if (!currentUID) {
             document.getElementById('autoUpdateStatus').innerText = '請登入以更新股價';
             return;
         }
 
-        // 僅在登入狀態下執行更新邏輯
         const { holdings } = calculateHoldingsAndClosed();
         const symbols = Object.keys(holdings);
 
-        if (symbols.length === 0) return;
+        if (symbols.length === 0) {
+            document.getElementById('autoUpdateStatus').innerText = '無持倉,無需更新';
+            return;
+        }
 
         let query = symbols.map(s => `tse_${s}.tw|otc_${s}.tw`).join('|');
         const timeStamp = new Date().getTime();
@@ -506,10 +510,10 @@
             }
         } catch (err) {
             console.error('更新失敗:', err);
+            document.getElementById('autoUpdateStatus').innerText = '更新失敗';
         }
     }
 
-    // ... (forceUpdatePrices, updateStatusMessage, manualPrice, render 邏輯 略) ...
     function forceUpdatePrices() {
         const btn = document.getElementById('btnUpdatePrice');
         btn.innerHTML = '⏳...';
@@ -539,13 +543,12 @@
     function render() {
         const { holdings, closedPositions, totalRealized, totalDividends, symbolDividends } = calculateHoldingsAndClosed();
         
-        // --- 1. 渲染持倉明細 (Holdings Table) ---
         const tbodyHoldings = document.getElementById('holdingsTable');
         tbodyHoldings.innerHTML = '';
         
         let gMkt=0, gCost=0, gUnrealized=0;
 
-        if (currentUID) { // 只在登入狀態下顯示數據
+        if (currentUID && Object.keys(holdings).length > 0) {
             for (let s in holdings) {
                 let h = holdings[s];
                 let avg = h.cost / h.qty;
@@ -572,7 +575,7 @@
                     <tr>
                         <td><strong>${s}</strong></td>
                         <td>${fmtNum(h.qty)}</td>
-                        <td>${fmtNum(avg.toFixed(4))}</td>
+                        <td>${fmtNum(avg.toFixed(2))}</td>
                         <td>
                             <input type="number" class="form-control form-control-sm d-inline-block p-1" style="width:70px; font-size: 0.85rem;" 
                                 value="${currP}" onchange="manualPrice('${s}', this.value)">
@@ -586,15 +589,16 @@
                     </tr>`;
                 tbodyHoldings.innerHTML += tr;
             }
-        } else {
+        } else if (!currentUID) {
              tbodyHoldings.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">請先登入以載入個人持倉數據</td></tr>`;
+        } else {
+             tbodyHoldings.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">尚無持倉紀錄</td></tr>`;
         }
 
-        // --- 2. 渲染平倉明細 (Closed Positions Table) ---
         const tbodyClosed = document.getElementById('closedPositionsTable');
         tbodyClosed.innerHTML = '';
         
-        if (currentUID) {
+        if (currentUID && Object.keys(closedPositions).length > 0) {
             for (let s in closedPositions) {
                 let cp = closedPositions[s];
                 let profit = cp.revenue - cp.cost;
@@ -616,14 +620,12 @@
                      tbodyClosed.innerHTML += tr;
                 }
             }
-             if (Object.keys(closedPositions).length === 0) {
-                 tbodyClosed.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">尚無平倉紀錄</td></tr>`;
-             }
-        } else {
+        } else if (!currentUID) {
              tbodyClosed.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">請先登入以載入個人數據</td></tr>`;
+        } else {
+             tbodyClosed.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">尚無平倉紀錄</td></tr>`;
         }
 
-        // --- 3. 渲染儀表板總覽 (Dashboard Totals) ---
         document.getElementById('totalMarketValue').innerText = fmtMoney(fmtRound(gMkt));
         document.getElementById('totalMarketValue').className = gMkt >= 0 ? 'text-up' : 'text-down';
         
@@ -637,10 +639,9 @@
         document.getElementById('totalRealizedPL').innerText = fmtMoney(fmtRound(totalRealized + totalDividends));
         document.getElementById('totalRealizedPL').className = (totalRealized + totalDividends) >= 0 ? 'text-up' : 'text-down';
 
-        // --- 4. 渲染歷史紀錄 (History Table) ---
         const hBody = document.getElementById('historyTable');
         hBody.innerHTML = '';
-        if (currentUID) {
+        if (currentUID && transactions.length > 0) {
             [...transactions].reverse().forEach(t => {
                 let typeText = t.type === 'buy' ? '買' : (t.type === 'sell' ? '賣' : (t.type === 'dividend' ? '息' : '折'));
                 let typeBg = t.type === 'buy' ? 'bg-danger' : (t.type === 'sell' ? 'bg-success' : 'bg-warning text-dark');
@@ -658,15 +659,13 @@
                  </tr>`;
                 hBody.innerHTML += tr;
             });
-             if (transactions.length === 0) {
-                 hBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">尚無交易紀錄</td></tr>`;
-             }
-        } else {
+        } else if (!currentUID) {
              hBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">請先登入以載入歷史數據</td></tr>`;
+        } else {
+             hBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">尚無交易紀錄</td></tr>`;
         }
     }
 
-    // ⭐ 新增：Google 登入/登出函式 ⭐
     function signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
         firebase.auth().signInWithPopup(provider)
@@ -677,14 +676,16 @@
     }
 
     function signOutUser() {
-        firebase.auth().signOut().then(() => {
-            console.log("User signed out.");
-        }).catch((error) => {
-            console.error("Sign-Out Error: ", error);
-        });
+        if(confirm('確定要登出嗎？')) {
+            firebase.auth().signOut().then(() => {
+                console.log("User signed out.");
+            }).catch((error) => {
+                console.error("Sign-Out Error: ", error);
+            });
+        }
     }
 
-    // ⭐ 核心變更：監聽登入狀態 ⭐
+    // 修正：監聽登入狀態,正確處理定時器
     firebase.auth().onAuthStateChanged((user) => {
         const userInfoEl = document.getElementById('userInfo');
         const signInBtn = document.getElementById('btnGoogleSignIn');
@@ -693,15 +694,21 @@
         if (user) {
             // 已登入
             currentUID = user.uid;
-            userInfoEl.innerText = `歡迎, ${user.displayName.split(' ')[0]}`;
+            const displayName = user.displayName || user.email;
+            userInfoEl.innerText = `歡迎, ${displayName.split(' ')[0]}`;
             signInBtn.style.display = 'none';
             signOutBtn.style.display = 'block';
             console.log(`User logged in: ${currentUID}`);
             
             // 載入該用戶的專屬資料
             loadDataFromFirebase(); 
-            // 啟動定時更新
-            setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
+            
+            // 修正：清除舊定時器,啟動新定時器
+            if (priceUpdateInterval) {
+                clearInterval(priceUpdateInterval);
+            }
+            autoUpdatePrices(); // 立即更新一次
+            priceUpdateInterval = setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
 
         } else {
             // 未登入
@@ -711,18 +718,26 @@
             signOutBtn.style.display = 'none';
             console.log("User signed out. Clearing data.");
             
-            // 清除數據並渲染，顯示「請登入」
-            loadDataFromFirebase();
+            // 修正：清除定時器
+            if (priceUpdateInterval) {
+                clearInterval(priceUpdateInterval);
+                priceUpdateInterval = null;
+            }
             
-            // 停止定時更新
-            // (註: 為了避免重複計時器，我們在登入時再啟動)
+            // 清除 Firebase 監聽器
+            cleanupFirebaseListeners();
+            
+            // 清除數據並渲染
+            transactions = [];
+            priceCache = {};
+            render();
+            
+            document.getElementById('autoUpdateStatus').innerText = '等待登入...';
         }
     });
 
-    // 頁面載入時不執行 loadDataFromFirebase，改由 onAuthStateChanged 觸發
-    // autoUpdatePrices(); // 移除，改由 onAuthStateChanged 啟動定時器
-    toggleInputs(); // 初始化表單設定
-
+    // 初始化
+    toggleInputs();
 </script>
 
 </body>
