@@ -1,6 +1,6 @@
 {
-  "name": "個人股票投資看板",
-  "short_name": "投資看板",
+  "name": "Finyx - 個人股票投資管理",
+  "short_name": "Finyx",
   "description": "個人股票投資管理系統",
   "start_url": "./index.html",
   "scope": "./",
