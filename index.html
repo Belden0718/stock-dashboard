@@ -1,1197 +1,892 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#4f46e5">
-  <meta name="description" content="智慧借款管理系統 - 多人協作雲端版">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Monex">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <title>Monex | 智慧借款管理</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f8fafc;
-    }
-    input[type=number]::-webkit-inner-spin-button {
-      opacity: 1;
-      height: 30px;
-    }
-    dialog::backdrop {
-      background: rgba(0, 0, 0, 0.4);
-      backdrop-filter: blur(3px);
-    }
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 3px;
-    }
-    .status-badge {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
-      font-size: 0.75rem;
-      font-weight: bold;
-      z-index: 50;
-    }
-    .status-online {
-      background: #10b981;
-      color: white;
-    }
-    .status-offline {
-      background: #ef4444;
-      color: white;
-    }
-    .login-container {
-      position: fixed;
-      inset: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      padding: 1rem;
-      overflow-y: auto;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
-    }
-    .login-container.show {
-      opacity: 1;
-      visibility: visible;
-    }
-    .login-box {
-      background: white;
-      padding: 2rem 1.5rem;
-      border-radius: 1.5rem;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-      max-width: 380px;
-      width: 100%;
-    }
-    .google-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      background: white;
-      border: 2px solid #e5e7eb;
-      padding: 0.875rem 1.5rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      width: 100%;
-      font-size: 0.9375rem;
-    }
-    .google-btn:hover {
-      background: #f9fafb;
-      border-color: #d1d5db;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-    .user-menu {
-      position: relative;
-    }
-    .user-dropdown {
-      position: absolute;
-      top: 100%;
-      right: 0;
-      margin-top: 0.5rem;
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 0.5rem;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-      min-width: 200px;
-      display: none;
-      z-index: 50;
-    }
-    .user-dropdown.show {
-      display: block;
-    }
-    @media (max-width: 768px) {
-      .status-badge {
-        top: 0.5rem;
-        right: 0.5rem;
-        font-size: 0.65rem;
-        padding: 0.375rem 0.75rem;
-      }
-      .login-box {
-        padding: 1.5rem 1.25rem;
-        max-width: 90%;
-      }
-      .login-box h1 {
-        font-size: 2rem;
-      }
-      .google-btn {
-        padding: 0.75rem 1rem;
-        font-size: 0.875rem;
-      }
-      body {
-        padding: 0.5rem;
-      }
-    }
-    @media (max-width: 480px) {
-      .login-box {
-        padding: 1.25rem 1rem;
-      }
-      .login-box h1 {
-        font-size: 1.75rem;
-      }
-      .login-box p {
-        font-size: 0.875rem;
-      }
-    }
-    /* PWA 安裝提示 */
-    .install-prompt {
-      position: fixed;
-      bottom: 1rem;
-      left: 50%;
-      transform: translateX(-50%);
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 1rem 1.5rem;
-      border-radius: 1rem;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-      z-index: 100;
-      display: none;
-      max-width: 90%;
-      animation: slideUp 0.3s ease-out;
-    }
-    @keyframes slideUp {
-      from {
-        transform: translateX(-50%) translateY(100px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(-50%) translateY(0);
-        opacity: 1;
-      }
-    }
-    .install-prompt.show {
-      display: block;
-    }
-    /* 載入畫面 */
-    .loading-screen {
-      position: fixed;
-      inset: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 200;
-      transition: opacity 0.3s ease;
-    }
-    .loading-screen.hide {
-      opacity: 0;
-      pointer-events: none;
-    }
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
-</head>
-<body class="p-4 md:p-8 text-slate-800 pb-24">
-  <!-- 載入畫面 -->
-  <div id="loadingScreen" class="loading-screen">
-    <div class="text-center">
-      <div class="spinner mx-auto mb-4"></div>
-      <div class="text-white text-lg font-medium">載入中...</div>
-    </div>
-  </div>
-
-  <!-- PWA 安裝提示 -->
-  <div id="installPrompt" class="install-prompt">
-    <div class="flex items-center gap-3">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-      </svg>
-      <div class="flex-1">
-        <div class="font-bold text-sm">安裝 Monex 到主畫面</div>
-        <div class="text-xs opacity-90">離線也能使用</div>
-      </div>
-      <button onclick="installPWA()" class="bg-white text-indigo-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-gray-100 transition">
-        安裝
-      </button>
-      <button onclick="dismissInstallPrompt()" class="text-white opacity-75 hover:opacity-100">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- 登入畫面 -->
-  <div id="loginContainer" class="login-container">
-    <div class="login-box">
-      <div class="text-center mb-6">
-        <div class="bg-indigo-600 text-white p-3 rounded-xl shadow-lg inline-block mb-3">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h1 class="text-3xl font-bold text-slate-800 mb-2">Monex</h1>
-        <p class="text-slate-500">智慧借款管理系統</p>
-      </div>
-      <button onclick="signInWithGoogle()" class="google-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        使用 Google 帳號登入
-      </button>
-      <p class="text-xs text-slate-400 text-center mt-4">登入即表示您同意使用條款</p>
-    </div>
-  </div>
-
-  <!-- 主應用程式（登入後顯示） -->
-  <div id="appContainer" style="display: none;">
-  <div id="statusBadge" class="status-badge status-offline">🔄 連線中...</div>
-  
-  <div class="max-w-4xl mx-auto">
-    <div class="flex items-center justify-between mb-6">
-      <div class="flex items-center gap-3">
-        <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-lg">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-3xl font-bold tracking-tight text-slate-800">Monex</h1>
-          <p class="text-xs text-slate-400">☁️ 多人協作版</p>
-        </div>
-      </div>
-      <div class="user-menu">
-        <button onclick="toggleUserMenu()" class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 hover:bg-slate-50 transition">
-          <img id="userAvatar" src="" alt="User" class="w-8 h-8 rounded-full">
-          <div class="text-left hidden md:block">
-            <div id="userName" class="text-sm font-medium text-slate-800"></div>
-            <div id="userRole" class="text-xs text-slate-500"></div>
-          </div>
-          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-          </svg>
-        </button>
-        <div id="userDropdown" class="user-dropdown">
-          <div class="p-3 border-b border-slate-100">
-            <div class="text-sm font-medium text-slate-800" id="dropdownName"></div>
-            <div class="text-xs text-slate-500" id="dropdownEmail"></div>
-          </div>
-          <button onclick="openAccessControl()" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2" id="accessControlBtn">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-            </svg>
-            權限管理
-          </button>
-          <button onclick="signOut()" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-            </svg>
-            登出
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <details class="bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 group" open>
-      <summary class="p-4 cursor-pointer list-none flex justify-between items-center font-bold text-slate-600 hover:text-indigo-600">
-        <span>➕ 新增借款合約</span>
-        <span class="transition group-open:rotate-180">▼</span>
-      </summary>
-      <div class="p-6 pt-0 border-t border-slate-100 mt-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">借款對象</label>
-            <input type="text" id="borrower" placeholder="姓名" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">借款金額</label>
-            <input type="number" id="amount" step="1000" placeholder="0" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">借款日期</label>
-            <input type="date" id="loanDate" class="w-full border rounded-lg p-2.5 outline-none">
-          </div>
-          <div class="flex gap-2">
-            <div class="w-2/3">
-              <label class="block text-xs font-medium text-slate-500 mb-1">利率 (%)</label>
-              <input type="number" id="interestRate" placeholder="%" class="w-full border rounded-lg p-2.5 outline-none">
-            </div>
-            <div class="w-1/3">
-              <label class="block text-xs font-medium text-slate-500 mb-1">週期</label>
-              <select id="interestType" onchange="togglePayDayInput('new')" class="w-full border rounded-lg p-2.5 bg-white outline-none">
-                <option value="月">月息</option>
-                <option value="週">週息</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">約定繳息時間</label>
-            <div id="monthlyInput_new">
-              <input type="number" id="payDayDate" placeholder="每月幾號 (1-31)" min="1" max="31" class="w-full border rounded-lg p-2.5 outline-none">
-            </div>
-            <select id="payDayWeek_new" class="hidden w-full border rounded-lg p-2.5 bg-white outline-none">
-              <option value="1">每週一</option>
-              <option value="2">每週二</option>
-              <option value="3">每週三</option>
-              <option value="4">每週四</option>
-              <option value="5">每週五</option>
-              <option value="6">每週六</option>
-              <option value="0">每週日</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">繳息機制</label>
-            <select id="roundingType" class="w-full border rounded-lg p-2.5 bg-white outline-none">
-              <option value="normal">正常制</option>
-              <option value="round">取整數制 (百位)</option>
-            </select>
-          </div>
-          <div class="lg:col-span-2">
-            <label class="block text-xs font-medium text-slate-500 mb-1">備註</label>
-            <input type="text" id="notes" placeholder="備註資訊（選填）" class="w-full border rounded-lg p-2.5 outline-none">
-          </div>
-          <div class="flex items-end">
-            <button onclick="addLoan()" class="w-full bg-indigo-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">
-              建立合約
-            </button>
-          </div>
-        </div>
-      </div>
-    </details>
-
-    <div class="flex flex-wrap items-center gap-3 mb-4 bg-slate-100 p-3 rounded-xl border border-slate-200">
-      <span class="text-sm font-bold text-slate-500 ml-1">排序依據：</span>
-      <select id="sortBy" onchange="renderLoans()" class="bg-white border border-slate-300 text-sm rounded-lg p-2 outline-none">
-        <option value="date">📅 借款日期</option>
-        <option value="payDay">📆 繳息日期</option>
-        <option value="amount">💰 借款金額</option>
-        <option value="remaining">💳 剩餘本金</option>
-        <option value="name">👤 借款人姓名</option>
-      </select>
-      <button id="sortOrderBtn" onclick="toggleSortOrder()" class="bg-white border border-slate-300 text-slate-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center gap-1">
-        <span id="sortIcon">⬇️</span>
-        <span id="sortText">降冪</span>
-      </button>
-      <div class="h-6 w-px bg-slate-300"></div>
-      <span class="text-sm font-bold text-slate-500">篩選：</span>
-      <select id="filterStatus" onchange="renderLoans()" class="bg-white border border-slate-300 text-sm rounded-lg p-2 outline-none">
-        <option value="all">📋 全部顯示</option>
-        <option value="active">🔄 進行中</option>
-        <option value="completed">✅ 已結清</option>
-      </select>
-      <div class="h-6 w-px bg-slate-300"></div>
-      <span class="text-sm font-bold text-slate-500">搜尋：</span>
-      <input type="text" id="searchInput" placeholder="輸入借款人姓名..." oninput="renderLoans()" class="bg-white border border-slate-300 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 w-48">
-    </div>
-
-    <div id="loanList" class="space-y-6"></div>
-  </div>
-  </div>
-
-  <!-- 權限管理對話框 -->
-  <dialog id="accessModal" class="rounded-xl shadow-2xl p-0 w-full max-w-md overflow-hidden">
-    <div class="bg-white p-6">
-      <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-        </svg>
-        權限管理
-      </h3>
-      <div class="mb-4">
-        <label class="block text-sm text-slate-600 mb-2">新增授權使用者</label>
-        <div class="flex gap-2">
-          <input type="email" id="newUserEmail" placeholder="輸入 Email 地址" class="flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-          <button onclick="addAuthorizedUser()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-            新增
-          </button>
-        </div>
-      </div>
-      <div class="mb-4">
-        <label class="block text-sm text-slate-600 mb-2">已授權使用者</label>
-        <div id="authorizedUsersList" class="space-y-2 max-h-60 overflow-y-auto">
-          <!-- 動態載入 -->
-        </div>
-      </div>
-      <div class="mt-6 flex justify-end">
-        <button onclick="document.getElementById('accessModal').close()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">
-          關閉
-        </button>
-      </div>
-    </div>
-  </dialog>
-
-  <dialog id="actionModal" class="rounded-xl shadow-2xl p-0 w-full max-w-sm overflow-hidden">
-    <div class="bg-white p-6">
-      <h3 id="modalTitle" class="text-xl font-bold text-gray-800 mb-4">交易紀錄</h3>
-      <input type="hidden" id="modalLoanId">
-      <input type="hidden" id="modalType">
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm text-gray-500 mb-1">交易日期</label>
-          <input type="date" id="modalDate" class="w-full border rounded p-2 outline-none focus:border-indigo-500">
-        </div>
-        <div>
-          <label class="block text-sm text-gray-500 mb-1">金額</label>
-          <input type="number" id="modalAmount" class="w-full border rounded p-2 outline-none focus:border-indigo-500 text-lg font-bold">
-          <p id="autoCalcHint" class="text-xs text-amber-500 mt-1 hidden">💡 已自動填入：原始本金 × 利率</p>
-        </div>
-      </div>
-      <div class="mt-6 flex gap-3">
-        <button onclick="document.getElementById('actionModal').close()" class="flex-1 py-2 text-gray-500 hover:bg-gray-100 rounded-lg">取消</button>
-        <button onclick="confirmTransaction()" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-md">確認儲存</button>
-      </div>
-    </div>
-  </dialog>
-
-  <dialog id="editModal" class="rounded-xl shadow-2xl p-0 w-full max-w-md overflow-hidden">
-    <div class="bg-white p-6">
-      <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-        編輯合約內容
-      </h3>
-      <input type="hidden" id="editId">
-      <div class="grid grid-cols-2 gap-4">
-        <div class="col-span-2">
-          <label class="text-xs text-slate-500">借款人</label>
-          <input type="text" id="editBorrower" class="w-full border rounded p-2">
-        </div>
-        <div class="col-span-2">
-          <label class="text-xs text-slate-500">原始金額</label>
-          <input type="number" id="editAmount" step="1000" class="w-full border rounded p-2">
-        </div>
-        <div class="col-span-2">
-          <label class="text-xs text-slate-500">借款日期</label>
-          <input type="date" id="editLoanDate" class="w-full border rounded p-2">
-        </div>
-        <div>
-          <label class="text-xs text-slate-500">利率 (%)</label>
-          <input type="number" id="editRate" class="w-full border rounded p-2">
-        </div>
-        <div>
-          <label class="text-xs text-slate-500">週期</label>
-          <select id="editRateType" onchange="togglePayDayInput('edit')" class="w-full border rounded p-2 bg-white">
-            <option value="月">月息</option>
-            <option value="週">週息</option>
-          </select>
-        </div>
-        <div class="col-span-2">
-          <label class="text-xs text-slate-500">繳息機制</label>
-          <select id="editRoundingType" class="w-full border rounded p-2 bg-white">
-            <option value="normal">正常制</option>
-            <option value="round">取整數制 (百位)</option>
-          </select>
-        </div>
-        <div class="col-span-2">
-          <label class="text-xs text-slate-500">約定繳息時間</label>
-          <div id="monthlyInput_edit">
-            <input type="number" id="editPayDayDate" placeholder="每月幾號 (1-31)" min="1" max="31" class="w-full border rounded p-2">
-          </div>
-          <select id="editPayDayWeek" class="hidden w-full border rounded p-2 bg-white">
-            <option value="1">每週一</option>
-            <option value="2">每週二</option>
-            <option value="3">每週三</option>
-            <option value="4">每週四</option>
-            <option value="5">每週五</option>
-            <option value="6">每週六</option>
-            <option value="0">每週日</option>
-          </select>
-        </div>
-        <div class="col-span-2">
-          <label class="text-xs text-slate-500">備註</label>
-          <input type="text" id="editNotes" placeholder="備註資訊（選填）" class="w-full border rounded p-2">
-        </div>
-      </div>
-      <div class="mt-6 flex gap-3">
-        <button onclick="document.getElementById('editModal').close()" class="flex-1 py-2 text-gray-500 hover:bg-gray-100 rounded-lg">取消</button>
-        <button onclick="saveEdit()" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-md">儲存修改</button>
-      </div>
-    </div>
-  </dialog>
-
-  <script>
-    // ========== Service Worker 註冊 ==========
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then((registration) => {
-            console.log('ServiceWorker 註冊成功:', registration.scope);
-          })
-          .catch((error) => {
-            console.log('ServiceWorker 註冊失敗:', error);
-          });
-      });
-    }
-
-    // ========== PWA 安裝功能 ==========
-    let deferredPrompt;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="個人股票投資管理系統，支援離線使用">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="投資看板">
     
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      // 顯示安裝提示（延遲3秒後顯示）
-      setTimeout(() => {
-        if (!localStorage.getItem('pwaInstallDismissed')) {
-          document.getElementById('installPrompt').classList.add('show');
+    <title>個人股票損益管理</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --success-color: #198754;
+            --danger-color: #dc3545;
         }
-      }, 3000);
-    });
+        
+        body { 
+            background-color: #f8f9fa; 
+            font-family: "Microsoft JhengHei", -apple-system, sans-serif;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        .card { 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+            border: none; 
+            margin-bottom: 1rem;
+            border-radius: 12px;
+        }
+        
+        .stat-card { 
+            text-align: center; 
+            padding: 1rem; 
+            height: 100%;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:active {
+            transform: scale(0.98);
+        }
+        
+        .text-up { color: var(--danger-color) !important; font-weight: bold !important; }
+        .text-down { color: var(--success-color) !important; font-weight: bold !important; }
+        .price-source { font-size: 0.7rem; color: #999; display: block; margin-top: 2px;}
+        
+        .status-bar { 
+            font-size: 0.75rem; 
+            color: #6c757d; 
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .firebase-status { 
+            padding: 3px 8px; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+        
+        .firebase-connected { background-color: #d1e7dd; color: #0f5132; }
+        .firebase-disconnected { background-color: #f8d7da; color: #842029; }
+        
+        .loading { opacity: 0.7; pointer-events: none; }
+        
+        /* 頂部按鈕區優化 */
+        .header-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        
+        .user-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        
+        .user-info {
+            font-size: 0.8rem;
+            color: #6c757d;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .btn-group-actions {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        
+        .btn-group-actions .btn {
+            flex: 1;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            white-space: nowrap;
+        }
+        
+        /* PWA 安裝提示已移除 */
+        
+        /* 平板以上設備 */
+        @media (min-width: 768px) {
+            .header-actions {
+                flex-direction: row;
+                align-items: center;
+                justify-content: flex-end;
+                width: auto;
+            }
+            
+            .user-section {
+                width: auto;
+                flex-direction: row;
+            }
+            
+            .btn-group-actions {
+                width: auto;
+            }
+            
+            .btn-group-actions .btn {
+                flex: 0 0 auto;
+            }
+            
+            .user-info {
+                flex: 0 0 auto;
+            }
+        }
+        
+        /* 手機優化 */
+        @media (max-width: 576px) {
+            .container { padding-left: 0.75rem; padding-right: 0.75rem; }
+            h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+            .stat-card h3 { font-size: 1.4rem; }
+            .stat-card h5 { font-size: 0.85rem; }
+            .card-header { font-size: 0.9rem; padding: 0.75rem 1rem; }
+            .table { font-size: 0.85rem; }
+            
+            /* 確保按鈕對齊 */
+            .btn-group-actions {
+                flex-direction: column;
+            }
+            
+            .btn-group-actions .btn {
+                width: 100%;
+            }
+        }
+        
+        /* 表格優化 */
+        .table-responsive {
+            border-radius: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* 卡片動畫 */
+        .card {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
 
-    async function installPWA() {
-      if (!deferredPrompt) {
-        alert('此瀏覽器不支援安裝，或已經安裝了');
-        return;
-      }
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        console.log('使用者安裝了 PWA');
-      }
-      deferredPrompt = null;
-      document.getElementById('installPrompt').classList.remove('show');
+<!-- PWA 安裝提示已移除 -->
+
+<div class="container py-3">
+    <!-- 頂部標題與按鈕 -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
+        <div class="flex-shrink-0">
+            <h2 class="mb-1">📈 投資看板</h2>
+            <div class="status-bar">
+                <span id="autoUpdateStatus">等待登入...</span>
+                <span class="firebase-status" id="firebaseStatus">連線中...</span>
+            </div>
+        </div>
+        
+        <div class="header-actions">
+            <div class="user-section">
+                <span id="userInfo" class="user-info d-none d-md-block">請登入</span>
+            </div>
+            
+            <div class="btn-group-actions">
+                <button id="btnGoogleSignIn" class="btn btn-danger btn-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.636c0 1.64-.42 3.17-1.15 4.51a9.03 9.03 0 0 1-3.14 3.29 8.78 8.78 0 0 1-4.42 1.18A9 9 0 1 1 12 3.48a8.93 8.93 0 0 1 2.96 2.19l-3.02 2.9a5.37 5.37 0 0 0-3.94-1.69 5.52 5.52 0 1 0 3.94 9.4 4.48 4.48 0 0 0 2.93-2.96H8.03v-3.8h7.52z"/>
+                    </svg>
+                    <span class="ms-1">Google 登入</span>
+                </button>
+
+                <button id="btnSignOut" class="btn btn-secondary btn-sm" style="display:none;">
+                    登出
+                </button>
+                
+                <button id="btnUpdatePrice" class="btn btn-primary btn-sm">
+                    🔄 更新現價
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 統計卡片 -->
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card stat-card">
+                <h5 class="text-muted">總市值</h5>
+                <h3 id="totalMarketValue">$0</h3>
+                <small class="text-muted">現值</small>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card">
+                <h5 class="text-muted">總成本</h5>
+                <h3 id="totalCost">$0</h3>
+                <small class="text-muted">本金</small>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card">
+                <h5 class="text-muted">未實現</h5>
+                <h3 id="totalUnrealizedPL">$0</h3>
+                <small id="totalUnrealizedRate">0%</small>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card">
+                <h5 class="text-muted">已實現+股利</h5>
+                <h3 id="totalRealizedPL">$0</h3>
+                <small class="text-muted">獲利</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增交易表單 -->
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            ➕ 新增交易
+        </div>
+        <div class="card-body">
+            <form id="tradeForm" class="row g-2">
+                <div class="col-6 col-md-2">
+                    <label class="form-label small">類別</label>
+                    <select class="form-select form-select-sm" id="type">
+                        <option value="buy">買入</option>
+                        <option value="sell">賣出</option>
+                        <option value="dividend">現金股利</option>
+                        <option value="discount">折讓/退費</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small">代號</label>
+                    <input type="text" class="form-control form-control-sm" id="symbol" placeholder="2330" required>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small">日期</label>
+                    <input type="date" class="form-control form-control-sm" id="tradeDate" required>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small" id="lblQty">股數</label>
+                    <input type="number" class="form-control form-control-sm" id="qty">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small" id="lblPrice">單價</label>
+                    <input type="number" class="form-control form-control-sm" id="price" step="0.01">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small" id="lblFee">手續費</label>
+                    <input type="number" class="form-control form-control-sm" id="fee" readonly style="background-color: #f0f0f0;">
+                </div>
+                <div class="col-12 mt-3">
+                    <button type="submit" class="btn btn-success w-100">確認新增</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 持倉明細 -->
+    <div class="card">
+        <div class="card-header">📊 目前持倉明細</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 text-nowrap">
+                    <thead class="table-light">
+                        <tr>
+                            <th>股票</th>
+                            <th>股數</th>
+                            <th>均價</th>
+                            <th>現價</th>
+                            <th>市值</th>
+                            <th>未實現損益</th>
+                            <th>報酬率 %</th>
+                            <th>累計股利</th>
+                            <th>含息總益</th>
+                        </tr>
+                    </thead>
+                    <tbody id="holdingsTable">
+                        <tr><td colspan="9" class="text-center text-muted py-4">請先登入以載入個人持倉數據</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 平倉明細 -->
+    <div class="card">
+        <div class="card-header">💸 平倉明細 (已實現損益)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
+                    <thead class="table-light">
+                        <tr>
+                            <th>股票</th>
+                            <th>股數</th>
+                            <th>總成本</th>
+                            <th>總收入</th>
+                            <th>賣出損益</th>
+                            <th>報酬率 %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="closedPositionsTable">
+                        <tr><td colspan="6" class="text-center text-muted py-3">請先登入以載入個人數據</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 歷史紀錄 -->
+    <div class="card">
+        <div class="card-header">📝 歷史紀錄</div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-sm table-striped mb-0 text-nowrap">
+                    <thead class="sticky-top bg-white">
+                        <tr>
+                            <th>日期</th>
+                            <th>類別</th>
+                            <th>股票</th>
+                            <th>明細</th>
+                            <th>損益/收支</th>
+                            <th>費用</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTable">
+                        <tr><td colspan="7" class="text-center text-muted py-3">請先登入以載入歷史數據</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script>
+(function() {
+    'use strict';
+    
+    // 註冊 Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker 已註冊', reg.scope))
+                .catch(err => console.error('Service Worker 註冊失敗:', err));
+        });
     }
-
-    function dismissInstallPrompt() {
-      document.getElementById('installPrompt').classList.remove('show');
-      localStorage.setItem('pwaInstallDismissed', 'true');
-    }
-
-    // ========== Firebase 配置區 ==========
+    
     const firebaseConfig = {
-      apiKey: "AIzaSyD2fg3BkDV9GDlXHQZM5BEoyLKE-7D_2TM",
-      authDomain: "monex-loan-manager.firebaseapp.com",
-      databaseURL: "https://monex-loan-manager-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "monex-loan-manager",
-      storageBucket: "monex-loan-manager.firebasestorage.app",
-      messagingSenderId: "1015498422004",
-      appId: "1:1015498422004:web:d4a5cb27d7587ed39650a1",
-      measurementId: "G-LT6QRW0550"
+      apiKey: "AIzaSyDqE-QYqXgZ1xZ_oKIIGIypDzB4iKIvwCk",
+      authDomain: "stock-dashboard-a1b1c.firebaseapp.com",
+      databaseURL: "https://stock-dashboard-a1b1c-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "stock-dashboard-a1b1c",
+      storageBucket: "stock-dashboard-a1b1c.firebasestorage.app",
+      messagingSenderId: "1013607091612",
+      appId: "1:1013607091612:web:eb8c54458a3d731bf9cc59",
+      measurementId: "G-WQ32XFZQSQ"
     };
 
-    // 初始化 Firebase
-    let database;
-    let loansRef;
-    let accessRef;
-    let auth;
-    let currentUser = null;
-    let isOwner = false;
-    let authInitialized = false;
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const auth = firebase.auth();
     
-    try {
-      firebase.initializeApp(firebaseConfig);
-      database = firebase.database();
-      auth = firebase.auth();
-      
-      // 監聽登入狀態
-      auth.onAuthStateChanged(async (user) => {
-        if (user) {
-          currentUser = user;
-          await checkUserAccess(user);
+    let transactionsRef = null;
+    let pricesRef = null;
+    let transactions = [];
+    let priceCache = {};
+    let currentUID = null;
+    let priceUpdateInterval = null;
+    const PRICE_UPDATE_INTERVAL = 30000;
+
+    database.ref('.info/connected').on('value', (snap) => {
+        const statusEl = document.getElementById('firebaseStatus');
+        if (snap.val() === true) {
+            statusEl.innerText = '已連線 ✓';
+            statusEl.className = 'firebase-status firebase-connected';
         } else {
-          currentUser = null;
-          // 確保已初始化才顯示登入畫面
-          if (authInitialized) {
-            showLoginScreen();
-          }
+            statusEl.innerText = '離線 ✗';
+            statusEl.className = 'firebase-status firebase-disconnected';
         }
-        
-        // 標記已初始化，隱藏載入畫面
-        if (!authInitialized) {
-          authInitialized = true;
-          setTimeout(() => {
-            document.getElementById('loadingScreen').classList.add('hide');
-          }, 300);
-        }
-      });
-      
-    } catch (error) {
-      console.error('Firebase 初始化失敗:', error);
-      alert('⚠️ 無法連接到雲端資料庫，請檢查 Firebase 設定');
-      document.getElementById('loadingScreen').classList.add('hide');
-    }
-
-    // Google 登入
-    async function signInWithGoogle() {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      try {
-        // 設定持久化登入狀態
-        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-        await auth.signInWithPopup(provider);
-      } catch (error) {
-        console.error('登入失敗:', error);
-        alert('登入失敗，請稍後再試');
-      }
-    }
-
-    // 登出
-    async function signOut() {
-      if (confirm('確定要登出嗎？')) {
-        await auth.signOut();
-      }
-    }
-
-    // 檢查使用者權限
-    async function checkUserAccess(user) {
-      const accessSnapshot = await database.ref('access').once('value');
-      const accessData = accessSnapshot.val() || {};
-      
-      // 檢查是否為擁有者（第一個註冊的使用者）
-      if (!accessData.owner) {
-        // 第一個使用者自動成為擁有者
-        await database.ref('access/owner').set(user.email);
-        isOwner = true;
-      } else if (accessData.owner === user.email) {
-        isOwner = true;
-      } else {
-        // 檢查是否在授權名單中
-        const authorizedUsers = accessData.authorizedUsers || [];
-        if (!authorizedUsers.includes(user.email)) {
-          alert('⚠️ 您沒有權限訪問此系統，請聯繫管理員授權。');
-          await auth.signOut();
-          return;
-        }
-        isOwner = false;
-      }
-      
-      // 權限檢查通過，初始化應用程式
-      initializeApp(user);
-    }
-
-    // 初始化應用程式
-    function initializeApp(user) {
-      loansRef = database.ref('loans');
-      accessRef = database.ref('access');
-      
-      // 顯示使用者資訊
-      document.getElementById('userAvatar').src = user.photoURL || 'https://via.placeholder.com/40';
-      document.getElementById('userName').textContent = user.displayName || user.email.split('@')[0];
-      document.getElementById('userRole').textContent = isOwner ? '擁有者' : '協作者';
-      document.getElementById('dropdownName').textContent = user.displayName || user.email.split('@')[0];
-      document.getElementById('dropdownEmail').textContent = user.email;
-      
-      // 只有擁有者可以看到權限管理按鈕
-      document.getElementById('accessControlBtn').style.display = isOwner ? 'flex' : 'none';
-      
-      // 顯示主應用程式
-      document.getElementById('loginContainer').classList.remove('show');
-      document.getElementById('appContainer').style.display = 'block';
-      
-      updateStatus('online');
-      
-      // 監聽資料變化
-      loansRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        loans = data ? Object.values(data).map(loan => ({
-          ...loan,
-          repayments: loan.repayments || [],
-          interestPayments: loan.interestPayments || []
-        })) : [];
-        renderLoans();
-      });
-    }
-
-    // 顯示登入畫面
-    function showLoginScreen() {
-      document.getElementById('loginContainer').classList.add('show');
-      document.getElementById('appContainer').style.display = 'none';
-    }
-
-    // 開啟權限管理對話框
-    async function openAccessControl() {
-      if (!isOwner) {
-        alert('只有擁有者可以管理權限');
-        return;
-      }
-      
-      const accessSnapshot = await accessRef.once('value');
-      const accessData = accessSnapshot.val() || {};
-      const authorizedUsers = accessData.authorizedUsers || [];
-      const owner = accessData.owner || '';
-      
-      const listEl = document.getElementById('authorizedUsersList');
-      listEl.innerHTML = '';
-      
-      // 顯示擁有者
-      listEl.innerHTML += `
-        <div class="flex items-center justify-between p-2 bg-indigo-50 rounded border border-indigo-200">
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-            </svg>
-            <div>
-              <div class="text-sm font-medium text-slate-800">${owner}</div>
-              <div class="text-xs text-indigo-600">擁有者</div>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      // 顯示授權使用者
-      if (authorizedUsers.length === 0) {
-        listEl.innerHTML += '<div class="text-sm text-slate-400 text-center py-4">尚未授權任何使用者</div>';
-      } else {
-        authorizedUsers.forEach(email => {
-          listEl.innerHTML += `
-            <div class="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-200">
-              <div class="text-sm text-slate-700">${email}</div>
-              <button onclick="removeAuthorizedUser('${email}')" class="text-red-500 hover:text-red-700">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-              </button>
-            </div>
-          `;
-        });
-      }
-      
-      document.getElementById('accessModal').showModal();
-    }
-
-    // 新增授權使用者
-    async function addAuthorizedUser() {
-      const email = document.getElementById('newUserEmail').value.trim().toLowerCase();
-      if (!email) {
-        alert('請輸入 Email 地址');
-        return;
-      }
-      
-      // 驗證 Email 格式
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        alert('請輸入有效的 Email 地址');
-        return;
-      }
-      
-      const accessSnapshot = await accessRef.once('value');
-      const accessData = accessSnapshot.val() || {};
-      const authorizedUsers = accessData.authorizedUsers || [];
-      const owner = accessData.owner || '';
-      
-      if (email === owner) {
-        alert('此使用者已是擁有者');
-        return;
-      }
-      
-      if (authorizedUsers.includes(email)) {
-        alert('此使用者已在授權名單中');
-        return;
-      }
-      
-      authorizedUsers.push(email);
-      await accessRef.child('authorizedUsers').set(authorizedUsers);
-      
-      document.getElementById('newUserEmail').value = '';
-      openAccessControl(); // 重新載入列表
-    }
-
-    // 切換使用者選單
-    function toggleUserMenu() {
-      const dropdown = document.getElementById('userDropdown');
-      dropdown.classList.toggle('show');
-    }
-
-    // 點擊外部關閉選單
-    document.addEventListener('click', function(event) {
-      const userMenu = document.querySelector('.user-menu');
-      const dropdown = document.getElementById('userDropdown');
-      if (dropdown && userMenu && !userMenu.contains(event.target)) {
-        dropdown.classList.remove('show');
-      }
     });
 
-    function updateStatus(status) {
-      const badge = document.getElementById('statusBadge');
-      if (status === 'online') {
-        badge.textContent = '✅ 已連線';
-        badge.className = 'status-badge status-online';
-      } else {
-        badge.textContent = '❌ 離線';
-        badge.className = 'status-badge status-offline';
-      }
+    document.getElementById('tradeDate').valueAsDate = new Date();
+
+    const fmtMoney = (n) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits:0, maximumFractionDigits:0 }).format(n);
+    const fmtNum = (n) => new Intl.NumberFormat('zh-TW').format(n);
+    const fmtRound = (n) => Math.round(n);
+
+    function calculateFee(amount) {
+        let fee = Math.round(amount * 0.001425);
+        return Math.max(fee, 20);
     }
 
-    // ========== 應用程式邏輯 ==========
-    document.getElementById('loanDate').valueAsDate = new Date();
-    document.getElementById('modalDate').valueAsDate = new Date();
-    let loans = [];
-    let isDesc = true;
-
-    function togglePayDayInput(context) {
-      const type = document.getElementById(context === 'new' ? 'interestType' : 'editRateType').value;
-      const monthDiv = document.getElementById(context === 'new' ? 'monthlyInput_new' : 'monthlyInput_edit');
-      const weekSel = document.getElementById(context === 'new' ? 'payDayWeek_new' : 'editPayDayWeek');
-      if (type === '月') {
-        monthDiv.classList.remove('hidden');
-        weekSel.classList.add('hidden');
-      } else {
-        monthDiv.classList.add('hidden');
-        weekSel.classList.remove('hidden');
-      }
-    }
-
-    function toggleSortOrder() {
-      isDesc = !isDesc;
-      document.getElementById('sortIcon').textContent = isDesc ? '⬇️' : '⬆️';
-      document.getElementById('sortText').textContent = isDesc ? '降冪' : '升冪';
-      renderLoans();
-    }
-
-    function getSortedLoans() {
-      const criteria = document.getElementById('sortBy').value;
-      const filterStatus = document.getElementById('filterStatus').value;
-      const searchKeyword = document.getElementById('searchInput').value.toLowerCase().trim();
-      
-      let filtered = loans;
-      
-      // 篩選狀態
-      if (filterStatus === 'active') {
-        filtered = filtered.filter(loan => {
-          const totalRepaid = loan.repayments.reduce((sum, r) => sum + r.amount, 0);
-          return loan.originalAmount - totalRepaid > 0;
-        });
-      } else if (filterStatus === 'completed') {
-        filtered = filtered.filter(loan => {
-          const totalRepaid = loan.repayments.reduce((sum, r) => sum + r.amount, 0);
-          return loan.originalAmount - totalRepaid <= 0;
-        });
-      }
-      
-      // 搜尋關鍵字
-      if (searchKeyword) {
-        filtered = filtered.filter(loan => 
-          loan.borrower.toLowerCase().includes(searchKeyword)
-        );
-      }
-      
-      return [...filtered].sort((a, b) => {
-        let valA, valB;
-        if (criteria === 'amount') {
-          valA = a.originalAmount;
-          valB = b.originalAmount;
-        } else if (criteria === 'remaining') {
-          const remainingA = a.originalAmount - a.repayments.reduce((sum, r) => sum + r.amount, 0);
-          const remainingB = b.originalAmount - b.repayments.reduce((sum, r) => sum + r.amount, 0);
-          valA = remainingA;
-          valB = remainingB;
-        } else if (criteria === 'payDay') {
-          const getPayDayValue = (loan) => {
-            if (!loan.payDay) return 9999;
-            if (loan.rateType === '週') {
-              return loan.payDay == 0 ? 7 : parseInt(loan.payDay);
-            } else {
-              return parseInt(loan.payDay);
-            }
-          };
-          valA = getPayDayValue(a);
-          valB = getPayDayValue(b);
-        } else if (criteria === 'name') {
-          valA = a.borrower.toLowerCase();
-          valB = b.borrower.toLowerCase();
+    function updateFeeDisplay() {
+        const type = document.getElementById('type').value;
+        if (type === 'buy' || type === 'sell') {
+            const price = parseFloat(document.getElementById('price').value) || 0;
+            const qty = parseFloat(document.getElementById('qty').value) || 0;
+            const amount = price * qty;
+            const fee = calculateFee(amount);
+            document.getElementById('fee').value = fee;
         } else {
-          valA = new Date(a.loanDate).getTime();
-          valB = new Date(b.loanDate).getTime();
+            document.getElementById('fee').value = 0;
         }
-        if (valA < valB) return isDesc ? 1 : -1;
-        if (valA > valB) return isDesc ? -1 : 1;
-        return 0;
-      });
     }
 
-    function addLoan() {
-      const borrower = document.getElementById('borrower').value;
-      const amount = parseFloat(document.getElementById('amount').value);
-      const loanDate = document.getElementById('loanDate').value;
-      const rate = document.getElementById('interestRate').value;
-      const type = document.getElementById('interestType').value;
-      const payDay = type === '月' ? document.getElementById('payDayDate').value : document.getElementById('payDayWeek_new').value;
-      const roundingType = document.getElementById('roundingType').value;
-      const notes = document.getElementById('notes').value;
-      
-      if (!borrower || !amount || !loanDate) return alert("請填寫必要欄位");
-      
-      const newLoan = {
-        id: Date.now(),
-        borrower,
-        originalAmount: amount,
-        loanDate,
-        rate,
-        rateType: type,
-        payDay,
-        roundingType: roundingType || 'normal',
-        notes: notes || '',
-        repayments: [],
-        interestPayments: []
-      };
-      
-      // 直接推送到 Firebase
-      loansRef.child(newLoan.id).set(newLoan);
-      
-      // 清空表單，恢復預設值
-      document.getElementById('borrower').value = '';
-      document.getElementById('amount').value = '';
-      document.getElementById('loanDate').valueAsDate = new Date();
-      document.getElementById('interestRate').value = '';
-      document.getElementById('interestType').value = '月';
-      document.getElementById('payDayDate').value = '';
-      document.getElementById('roundingType').value = 'normal';
-      document.getElementById('notes').value = '';
-      togglePayDayInput('new');
-    }
+    function toggleInputs() {
+        const type = document.getElementById('type').value;
+        const priceInput = document.getElementById('price');
+        const qtyInput = document.getElementById('qty');
+        const feeInput = document.getElementById('fee');
+        const lblPrice = document.getElementById('lblPrice');
+        const lblQty = document.getElementById('lblQty');
+        const lblFee = document.getElementById('lblFee');
+        const symbolInput = document.getElementById('symbol');
 
-    function deleteLoan(id) {
-      if(confirm("確定刪除此紀錄？")) {
-        loansRef.child(id).remove();
-      }
-    }
-
-    function openEditModal(id) {
-      const loan = loans.find(l => l.id === id);
-      if(!loan) return;
-      document.getElementById('editId').value = id;
-      document.getElementById('editBorrower').value = loan.borrower;
-      document.getElementById('editAmount').value = loan.originalAmount;
-      document.getElementById('editLoanDate').value = loan.loanDate;
-      document.getElementById('editRate').value = loan.rate;
-      document.getElementById('editRateType').value = loan.rateType;
-      document.getElementById('editRoundingType').value = loan.roundingType || 'normal';
-      document.getElementById('editNotes').value = loan.notes || '';
-      togglePayDayInput('edit');
-      if (loan.rateType === '月') {
-        document.getElementById('editPayDayDate').value = loan.payDay;
-      } else {
-        document.getElementById('editPayDayWeek').value = loan.payDay;
-      }
-      document.getElementById('editModal').showModal();
-    }
-
-    function saveEdit() {
-      const id = parseInt(document.getElementById('editId').value);
-      const loan = loans.find(l => l.id === id);
-      if(!loan) return;
-      
-      loan.borrower = document.getElementById('editBorrower').value;
-      loan.originalAmount = parseFloat(document.getElementById('editAmount').value);
-      loan.loanDate = document.getElementById('editLoanDate').value;
-      loan.rate = document.getElementById('editRate').value;
-      loan.rateType = document.getElementById('editRateType').value;
-      loan.roundingType = document.getElementById('editRoundingType').value;
-      loan.notes = document.getElementById('editNotes').value;
-      loan.payDay = loan.rateType === '月' ? document.getElementById('editPayDayDate').value : document.getElementById('editPayDayWeek').value;
-      
-      loansRef.child(id).set(loan);
-      document.getElementById('editModal').close();
-    }
-
-    function openModal(type, id) {
-      const loan = loans.find(l => l.id === id);
-      document.getElementById('modalLoanId').value = id;
-      document.getElementById('modalType').value = type;
-      document.getElementById('modalDate').valueAsDate = new Date();
-      const titleEl = document.getElementById('modalTitle');
-      const amountEl = document.getElementById('modalAmount');
-      const hintEl = document.getElementById('autoCalcHint');
-      if (type === 'principal') {
-        titleEl.textContent = `💰 還本金 (${loan.borrower})`;
-        titleEl.className = "text-xl font-bold text-emerald-600 mb-4";
-        amountEl.value = '';
-        hintEl.classList.add('hidden');
-      } else {
-        titleEl.textContent = `📈 收利息 (${loan.borrower})`;
-        titleEl.className = "text-xl font-bold text-amber-600 mb-4";
-        if(loan.originalAmount && loan.rate) {
-          let calcInterest = loan.originalAmount * (loan.rate / 100);
-          
-          if (loan.roundingType === 'round') {
-            calcInterest = Math.ceil(calcInterest / 100) * 100;
-          } else {
-            calcInterest = Math.round(calcInterest);
-          }
-          
-          amountEl.value = calcInterest;
-          hintEl.classList.remove('hidden');
+        if (type === 'dividend' || type === 'discount') {
+            qtyInput.disabled = true;
+            qtyInput.value = 1;
+            symbolInput.disabled = type === 'discount';
+            symbolInput.required = type !== 'discount';
+            lblPrice.innerText = type === 'dividend' ? "總金額" : "金額";
+            lblQty.innerText = "份數(1)";
+            priceInput.placeholder = "總金額";
+            feeInput.value = 0;
+            lblFee.innerText = "免手續費";
+            feeInput.disabled = true;
         } else {
-          amountEl.value = '';
-          hintEl.classList.add('hidden');
+            qtyInput.disabled = false;
+            symbolInput.disabled = false;
+            symbolInput.required = true;
+            lblPrice.innerText = "成交單價";
+            lblQty.innerText = "股數";
+            priceInput.placeholder = "";
+            lblFee.innerText = "手續費";
+            feeInput.disabled = true;
+            updateFeeDisplay();
         }
-      }
-      document.getElementById('actionModal').showModal();
     }
 
-    function confirmTransaction() {
-      const id = parseInt(document.getElementById('modalLoanId').value);
-      const type = document.getElementById('modalType').value;
-      const date = document.getElementById('modalDate').value;
-      const amount = parseFloat(document.getElementById('modalAmount').value);
-      if (!amount || amount <= 0) return alert("金額錯誤");
-      
-      const loan = loans.find(l => l.id === id);
-      const record = { amount, date };
-      
-      if (type === 'principal') loan.repayments.push(record);
-      else loan.interestPayments.push(record);
-      
-      const dateSorter = (a, b) => new Date(b.date) - new Date(a.date);
-      loan.repayments.sort(dateSorter);
-      loan.interestPayments.sort(dateSorter);
-      
-      loansRef.child(id).set(loan);
-      document.getElementById('actionModal').close();
+    function cleanupFirebaseListeners() {
+        if (transactionsRef) transactionsRef.off();
+        if (pricesRef) pricesRef.off();
     }
 
-    function checkIsDueToday(loan) {
-      if (!loan.payDay) return false;
-      const today = new Date();
-      return loan.rateType === '月' ? today.getDate() == loan.payDay : today.getDay() == loan.payDay;
-    }
-
-    function getWeekName(num) {
-      return ['日', '一', '二', '三', '四', '五', '六'][num];
-    }
-
-    function renderLoans() {
-      const container = document.getElementById('loanList');
-      container.innerHTML = '';
-      const sortedLoans = getSortedLoans();
-      if (sortedLoans.length === 0) {
-        container.innerHTML = '<div class="text-center text-slate-400 py-10">尚無紀錄</div>';
-        return;
-      }
-      sortedLoans.forEach(loan => {
-        if (!loan.repayments) loan.repayments = [];
-        if (!loan.interestPayments) loan.interestPayments = [];
+    function loadDataFromFirebase() {
+        if (!currentUID) {
+            transactions = [];
+            priceCache = {};
+            render();
+            return;
+        }
         
-        const totalRepaid = loan.repayments.reduce((sum, r) => sum + r.amount, 0);
-        const remaining = loan.originalAmount - totalRepaid;
-        const totalProfit = loan.interestPayments.reduce((sum, r) => sum + r.amount, 0);
-        const isPaidOff = remaining <= 0;
-        const isDue = checkIsDueToday(loan);
-        let scheduleText = '';
-        if (loan.payDay) {
-          scheduleText = loan.rateType === '月' ? `每月 ${loan.payDay} 號` : `每週${getWeekName(loan.payDay)}`;
-        }
-        const html = `
-          <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative group hover:shadow-md transition">
-            <div class="flex justify-between items-start bg-slate-50 border-b border-slate-100 p-4">
-              <div>
-                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  ${loan.borrower}
-                  ${isPaidOff ? '<span class="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full">已結清</span>' : ''}
-                </h3>
-                <div class="text-xs text-slate-400 mt-1">借款日: ${loan.loanDate}</div>
-                ${loan.notes ? `<div class="text-xs text-slate-500 mt-1">📝 ${loan.notes}</div>` : ''}
-              </div>
-              <div class="text-right flex flex-col items-end gap-1">
-                <div class="flex gap-1">
-                  <button onclick="openEditModal(${loan.id})" class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="編輯合約">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                  </button>
-                  <button onclick="deleteLoan(${loan.id})" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" title="刪除合約">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                  </button>
-                </div>
-                <span class="text-lg font-bold text-slate-600">${loan.originalAmount.toLocaleString()}</span>
-              </div>
-            </div>
-            ${isDue && !isPaidOff ? `
-              <div class="bg-red-50 px-4 py-2 flex justify-between items-center border-b border-red-100">
-                <div class="flex items-center gap-2 text-red-600 font-bold text-sm">
-                  <span class="relative flex h-3 w-3">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </span>
-                  今天該繳息囉！
-                </div>
-                <button onclick="openModal('interest', ${loan.id})" class="text-xs bg-red-600 text-white px-3 py-1 rounded shadow hover:bg-red-700">收息</button>
-              </div>
-            ` : ''}
-            <div class="p-4">
-              <div class="grid grid-cols-2 gap-4 mb-4">
-                <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                  <div class="text-xs text-slate-500">剩餘本金</div>
-                  <div class="text-xl font-bold ${isPaidOff ? 'text-emerald-500' : 'text-slate-800'}">${remaining.toLocaleString()}</div>
-                </div>
-                <div class="bg-amber-50 p-3 rounded border border-amber-100 relative">
-                  <div class="text-xs text-amber-600">總獲利</div>
-                  <div class="text-xl font-bold text-amber-600">+${totalProfit.toLocaleString()}</div>
-                  <div class="text-xs text-amber-400 mt-1 border-t border-amber-200 pt-1 flex justify-between">
-                    <span>${loan.rate}% (${loan.rateType})</span>
-                    <span>${scheduleText}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="flex gap-2 mb-3">
-                ${!isPaidOff ? `
-                  <button onclick="openModal('principal', ${loan.id})" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 shadow-sm transition">
-                    還本金
-                  </button>
-                ` : ''}
-                <button onclick="openModal('interest', ${loan.id})" class="flex-1 bg-amber-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-600 shadow-sm transition">
-                  收利息
-                </button>
-              </div>
-              <details class="group/detail">
-                <summary class="flex justify-center items-center cursor-pointer text-sm text-slate-400 hover:text-indigo-500 py-1 select-none">
-                  <span>查看詳細交易紀錄</span>
-                </summary>
-                <div class="mt-2 grid grid-cols-2 gap-2 text-sm bg-slate-50 p-2 rounded max-h-40 overflow-y-auto">
-                  <div>
-                    <div class="font-bold text-slate-600 mb-1 sticky top-0 bg-slate-50">還本紀錄</div>
-                    ${loan.repayments.length ? loan.repayments.map(r => `
-                      <div class="flex justify-between text-slate-500 border-b border-slate-100 py-0.5"><span>${r.date}</span><span>-${r.amount}</span></div>
-                    `).join('') : '<span class="text-slate-300">無</span>'}
-                  </div>
-                  <div>
-                    <div class="font-bold text-slate-600 mb-1 sticky top-0 bg-slate-50">獲利紀錄</div>
-                    ${loan.interestPayments.length ? loan.interestPayments.map(r => `
-                      <div class="flex justify-between text-amber-600 border-b border-amber-100 py-0.5"><span>${r.date}</span><span>+${r.amount}</span></div>
-                    `).join('') : '<span class="text-slate-300">無</span>'}
-                  </div>
-                </div>
-              </details>
-            </div>
-          </div>
-        `;
-        container.innerHTML += html;
-      });
+        cleanupFirebaseListeners();
+        
+        transactionsRef = database.ref(`users/${currentUID}/transactions`);
+        pricesRef = database.ref('prices');
+        
+        transactionsRef.on('value', (snapshot) => {
+            transactions = [];
+            snapshot.forEach((child) => {
+                transactions.push({
+                    id: child.key,
+                    ...child.val()
+                });
+            });
+            render();
+        });
+
+        pricesRef.on('value', (snapshot) => {
+            if (snapshot.exists()) {
+                priceCache = snapshot.val();
+                render();
+            }
+        });
     }
 
-    // 移除授權使用者
-    async function removeAuthorizedUser(email) {
-      if (!confirm(`確定要移除 ${email} 的訪問權限嗎？`)) {
-        return;
-      }
-      
-      const accessSnapshot = await accessRef.once('value');
-      const accessData = accessSnapshot.val() || {};
-      let authorizedUsers = accessData.authorizedUsers || [];
-      
-      authorizedUsers = authorizedUsers.filter(e => e !== email);
-      await accessRef.child('authorizedUsers').set(authorizedUsers);
-      
-      openAccessControl(); // 重新載入列表
+    function calculateHoldingsAndClosed() {
+        let holdings = {};
+        let closedPositions = {};
+        let totalRealized = 0;
+        let totalDividends = 0;
+        let symbolDividends = {};
+        
+        [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+            if (!t.symbol && t.type !== 'discount') return;
+
+            if (!holdings[t.symbol]) holdings[t.symbol] = { qty: 0, cost: 0 };
+            if (!symbolDividends[t.symbol]) symbolDividends[t.symbol] = 0;
+            
+            let h = holdings[t.symbol];
+            
+            if (t.type === 'buy') {
+                h.qty += t.qty;
+                h.cost += (t.price * t.qty) + t.fee;
+            } else if (t.type === 'sell') {
+                let soldQty = t.qty;
+                let avgCostForSale = h.qty > 0 ? h.cost / h.qty : t.price;
+                let costPart = avgCostForSale * soldQty;
+                let revenue = (t.price * soldQty) - t.fee;
+                let profit = revenue - costPart;
+
+                if (!closedPositions[t.symbol]) closedPositions[t.symbol] = { cost: 0, revenue: 0, qty: 0 };
+                closedPositions[t.symbol].cost += costPart;
+                closedPositions[t.symbol].revenue += revenue;
+                closedPositions[t.symbol].qty += soldQty;
+
+                h.qty -= soldQty;
+                h.cost -= costPart;
+                totalRealized += profit;
+
+            } else if (t.type === 'dividend' || t.type === 'discount') {
+                symbolDividends[t.symbol] += t.price;
+                totalDividends += t.price;
+            }
+        });
+        
+        Object.keys(holdings).forEach(k => {
+            if (holdings[k].qty < 0.001) delete holdings[k];
+        });
+
+        return { holdings, closedPositions, totalRealized, totalDividends, symbolDividends };
     }
-  </script>
+
+    async function autoUpdatePrices() {
+        if (!currentUID) {
+            document.getElementById('autoUpdateStatus').innerText = '請登入以更新股價';
+            return;
+        }
+
+        const { holdings } = calculateHoldingsAndClosed();
+        const symbols = Object.keys(holdings);
+
+        if (symbols.length === 0) {
+            document.getElementById('autoUpdateStatus').innerText = '無持倉,無需更新';
+            return;
+        }
+
+        let query = symbols.map(s => `tse_${s}.tw|otc_${s}.tw`).join('|');
+        const timeStamp = new Date().getTime();
+        const targetUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${query}&json=1&delay=0&_=${timeStamp}`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+
+        try {
+            const res = await fetch(proxyUrl);
+            const data = await res.json();
+
+            if (data.msgArray && data.msgArray.length > 0) {
+                let updates = {};
+                data.msgArray.forEach(stk => {
+                    let sym = stk.c;
+                    let price = stk.z;
+                    let source = "即時";
+
+                    if (price === '-' || !price) {
+                        if (stk.o && stk.o !== '-') { price = stk.o; source = "開盤"; }
+                        else if (stk.y && stk.y !== '-') { price = stk.y; source = "昨收"; }
+                        else if (stk.b && stk.b.split('_')[0] !== '-') { price = stk.b.split('_')[0]; source = "買進"; }
+                    }
+
+                    if (sym && price && price !== '-') {
+                        updates[sym] = { 
+                            val: parseFloat(price), 
+                            src: source, 
+                            time: stk.t || '' 
+                        };
+                    }
+                });
+
+                pricesRef.update(updates);
+                updateStatusMessage();
+            }
+        } catch (err) {
+            console.error('更新失敗:', err);
+            document.getElementById('autoUpdateStatus').innerText = '更新失敗';
+        }
+    }
+
+    function updateStatusMessage() {
+        const status = document.getElementById('autoUpdateStatus');
+        const now = new Date();
+        const time = now.toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
+        status.innerText = `更新: ${time}`;
+    }
+
+    window.manualPrice = function(sym, val) {
+        if (!currentUID || !pricesRef) {
+            alert('請登入後再進行手動價格設定。');
+            return;
+        }
+        pricesRef.child(sym).set({ val: parseFloat(val), src: "手動", time: "" });
+    };
+
+    window.deleteTrade = function(id) {
+        if (!currentUID) {
+            alert('請先登入！');
+            return;
+        }
+        if(confirm('確定刪除此筆紀錄？')) {
+            transactionsRef.child(id).remove();
+        }
+    };
+
+    function render() {
+        const { holdings, closedPositions, totalRealized, totalDividends, symbolDividends } = calculateHoldingsAndClosed();
+        
+        const tbodyHoldings = document.getElementById('holdingsTable');
+        tbodyHoldings.innerHTML = '';
+        
+        let gMkt=0, gCost=0, gUnrealized=0;
+
+        if (currentUID && Object.keys(holdings).length > 0) {
+            for (let s in holdings) {
+                let h = holdings[s];
+                let avg = h.cost / h.qty;
+                
+                let pObj = priceCache[s] || { val: avg, src: '無' };
+                let currP = pObj.val;
+
+                let mkt = h.qty * currP;
+                let unrl = mkt - h.cost;
+                let rate = h.cost ? (unrl/h.cost)*100 : 0;
+                let divId = symbolDividends[s] || 0;
+                let divPlusUnrl = divId + unrl;
+                
+                gMkt += mkt;
+                gCost += h.cost;
+                gUnrealized += unrl;
+
+                let unrlCls = unrl >= 0 ? 'text-up' : 'text-down';
+                let rateCls = rate >= 0 ? 'text-up' : 'text-down';
+                let divCls = divId >= 0 ? 'text-up' : 'text-down';
+                let divPlusCls = divPlusUnrl >= 0 ? 'text-up' : 'text-down';
+
+                let tr = `
+                    <tr>
+                        <td><strong>${s}</strong></td>
+                        <td>${fmtNum(h.qty)}</td>
+                        <td>${fmtNum(avg.toFixed(2))}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm d-inline-block p-1" style="width:70px; font-size: 0.85rem;" 
+                                value="${currP}" onchange="manualPrice('${s}', this.value)">
+                            <span class="price-source">${pObj.src}</span>
+                        </td>
+                        <td>${fmtMoney(mkt)}</td>
+                        <td class="${unrlCls}">${fmtMoney(fmtRound(unrl))}</td>
+                        <td class="${rateCls}">${rate.toFixed(1)}%</td>
+                        <td class="${divCls}">${fmtMoney(fmtRound(divId))}</td>
+                        <td class="${divPlusCls}">${fmtMoney(fmtRound(divPlusUnrl))}</td>
+                    </tr>`;
+                tbodyHoldings.innerHTML += tr;
+            }
+        } else if (!currentUID) {
+             tbodyHoldings.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">請先登入以載入個人持倉數據</td></tr>`;
+        } else {
+             tbodyHoldings.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">尚無持倉紀錄</td></tr>`;
+        }
+
+        const tbodyClosed = document.getElementById('closedPositionsTable');
+        tbodyClosed.innerHTML = '';
+        
+        if (currentUID && Object.keys(closedPositions).length > 0) {
+            for (let s in closedPositions) {
+                let cp = closedPositions[s];
+                let profit = cp.revenue - cp.cost;
+                let rate = cp.cost ? (profit/cp.cost)*100 : 0;
+
+                if (cp.qty > 0) {
+                     let profitCls = profit >= 0 ? 'text-up' : 'text-down';
+                     let rateCls = rate >= 0 ? 'text-up' : 'text-down';
+
+                     let tr = `
+                         <tr>
+                             <td><strong>${s}</strong></td>
+                             <td>${fmtNum(cp.qty)}</td>
+                             <td>${fmtMoney(fmtRound(cp.cost))}</td>
+                             <td>${fmtMoney(fmtRound(cp.revenue))}</td>
+                             <td class="${profitCls}">${fmtMoney(fmtRound(profit))}</td>
+                             <td class="${rateCls}">${rate.toFixed(1)}%</td>
+                         </tr>`;
+                     tbodyClosed.innerHTML += tr;
+                }
+            }
+        } else if (!currentUID) {
+             tbodyClosed.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">請先登入以載入個人數據</td></tr>`;
+        } else {
+             tbodyClosed.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">尚無平倉紀錄</td></tr>`;
+        }
+
+        document.getElementById('totalMarketValue').innerText = fmtMoney(fmtRound(gMkt));
+        document.getElementById('totalMarketValue').className = gMkt >= 0 ? 'text-up' : 'text-down';
+        
+        document.getElementById('totalCost').innerText = fmtMoney(fmtRound(gCost));
+        document.getElementById('totalCost').className = gCost >= 0 ? 'text-up' : 'text-down';
+
+        document.getElementById('totalUnrealizedPL').innerText = fmtMoney(fmtRound(gUnrealized));
+        document.getElementById('totalUnrealizedPL').className = gUnrealized >= 0 ? 'text-up' : 'text-down';
+        document.getElementById('totalUnrealizedRate').innerText = (gCost ? (gUnrealized/gCost)*100 : 0).toFixed(2) + '%';
+        
+        document.getElementById('totalRealizedPL').innerText = fmtMoney(fmtRound(totalRealized + totalDividends));
+        document.getElementById('totalRealizedPL').className = (totalRealized + totalDividends) >= 0 ? 'text-up' : 'text-down';
+
+        const hBody = document.getElementById('historyTable');
+        hBody.innerHTML = '';
+        if (currentUID && transactions.length > 0) {
+            [...transactions].reverse().forEach(t => {
+                let typeText = t.type === 'buy' ? '買' : (t.type === 'sell' ? '賣' : (t.type === 'dividend' ? '息' : '折'));
+                let typeBg = t.type === 'buy' ? 'bg-danger' : (t.type === 'sell' ? 'bg-success' : 'bg-warning text-dark');
+                let detail = (t.type === 'dividend' || t.type === 'discount') ? fmtMoney(fmtRound(t.price)) : `${fmtNum(t.price)} × ${fmtNum(t.qty)}`;
+                let amount = t.type === 'buy' ? (t.price * t.qty + t.fee) : (t.type === 'sell' ? (t.price * t.qty - t.fee) : t.price);
+                
+                let tr = `<tr>
+                    <td><small>${t.date.substring(5)}</small></td>
+                    <td><span class="badge ${typeBg}">${typeText}</span></td>
+                    <td>${t.symbol || '-'}</td>
+                    <td><small>${detail}</small></td>
+                    <td>${t.type === 'buy' ? '-' : '+'}${fmtMoney(fmtRound(Math.abs(amount)))}</td>
+                    <td><small>${t.fee > 0 ? t.fee : '-'}</small></td>
+                    <td><button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="deleteTrade('${t.id}')">×</button></td>
+                 </tr>`;
+                hBody.innerHTML += tr;
+            });
+        } else if (!currentUID) {
+             hBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">請先登入以載入歷史數據</td></tr>`;
+        } else {
+             hBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">尚無交易紀錄</td></tr>`;
+        }
+    }
+
+    document.getElementById('price').addEventListener('change', updateFeeDisplay);
+    document.getElementById('price').addEventListener('keyup', updateFeeDisplay);
+    document.getElementById('qty').addEventListener('change', updateFeeDisplay);
+    document.getElementById('qty').addEventListener('keyup', updateFeeDisplay);
+    document.getElementById('type').addEventListener('change', function() {
+        toggleInputs();
+        updateFeeDisplay();
+    });
+
+    document.getElementById('tradeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!currentUID) {
+            alert('請先使用 Google 登入才能新增交易紀錄！');
+            return;
+        }
+
+        const type = document.getElementById('type').value;
+        const symbol = document.getElementById('symbol').value.toUpperCase().trim();
+        const tradeDate = document.getElementById('tradeDate').value;
+        let price = parseFloat(document.getElementById('price').value) || 0;
+        let qty = parseFloat(document.getElementById('qty').value) || 0;
+        let fee = parseFloat(document.getElementById('fee').value) || 0;
+
+        if (!tradeDate || !price) {
+            alert('請填入交易日期和金額');
+            return;
+        }
+
+        if ((type === 'buy' || type === 'sell') && !symbol) {
+            alert('請填入股票代號');
+            return;
+        }
+
+        const newTransaction = { 
+            date: tradeDate,
+            time: new Date().toISOString(),
+            type, 
+            symbol, 
+            price, 
+            qty, 
+            fee 
+        };
+
+        transactionsRef.push(newTransaction);
+        
+        this.reset();
+        document.getElementById('type').value = 'buy';
+        document.getElementById('tradeDate').valueAsDate = new Date();
+        toggleInputs();
+    });
+
+    document.getElementById('btnGoogleSignIn').addEventListener('click', function() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider)
+            .catch((error) => {
+                console.error("Google Sign-In Error: ", error);
+                alert("Google 登入失敗: " + error.message);
+            });
+    });
+
+    document.getElementById('btnSignOut').addEventListener('click', function() {
+        if(confirm('確定要登出嗎？')) {
+            auth.signOut();
+        }
+    });
+
+    document.getElementById('btnUpdatePrice').addEventListener('click', function() {
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ 更新中...';
+        btn.classList.add('loading');
+
+        autoUpdatePrices().then(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('loading');
+        });
+    });
+
+    auth.onAuthStateChanged((user) => {
+        const userInfoEl = document.getElementById('userInfo');
+        const signInBtn = document.getElementById('btnGoogleSignIn');
+        const signOutBtn = document.getElementById('btnSignOut');
+        
+        if (user) {
+            currentUID = user.uid;
+            const displayName = user.displayName || user.email;
+            userInfoEl.innerText = `歡迎, ${displayName.split(' ')[0]}`;
+            signInBtn.style.display = 'none';
+            signOutBtn.style.display = 'block';
+            
+            loadDataFromFirebase(); 
+            
+            if (priceUpdateInterval) clearInterval(priceUpdateInterval);
+            autoUpdatePrices();
+            priceUpdateInterval = setInterval(autoUpdatePrices, PRICE_UPDATE_INTERVAL);
+
+        } else {
+            currentUID = null;
+            userInfoEl.innerText = '請登入';
+            signInBtn.style.display = 'block';
+            signOutBtn.style.display = 'none';
+            
+            if (priceUpdateInterval) {
+                clearInterval(priceUpdateInterval);
+                priceUpdateInterval = null;
+            }
+            
+            cleanupFirebaseListeners();
+            transactions = [];
+            priceCache = {};
+            render();
+            
+            document.getElementById('autoUpdateStatus').innerText = '等待登入...';
+        }
+    });
+
+    toggleInputs();
+})();
+</script>
+
 </body>
 </html>
