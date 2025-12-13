@@ -110,30 +110,7 @@
             white-space: nowrap;
         }
         
-        /* PWA 安裝提示 */
-        .install-prompt {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            display: none;
-            z-index: 1000;
-            max-width: 90%;
-            animation: slideUp 0.3s ease;
-        }
-        
-        @keyframes slideUp {
-            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
-            to { transform: translateX(-50%) translateY(0); opacity: 1; }
-        }
-        
-        .install-prompt.show {
-            display: block;
-        }
+        /* PWA 安裝提示已移除 */
         
         /* 平板以上設備 */
         @media (min-width: 768px) {
@@ -201,19 +178,7 @@
 </head>
 <body>
 
-<!-- PWA 安裝提示 -->
-<div id="installPrompt" class="install-prompt">
-    <div class="d-flex align-items-center justify-content-between gap-3">
-        <div>
-            <strong>📱 安裝應用程式</strong>
-            <p class="mb-0 small text-muted">加入主畫面以便快速存取</p>
-        </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-primary btn-sm" id="installBtn">安裝</button>
-            <button class="btn btn-outline-secondary btn-sm" id="dismissBtn">稍後</button>
-        </div>
-    </div>
-</div>
+<!-- PWA 安裝提示已移除 -->
 
 <div class="container py-3">
     <!-- 頂部標題與按鈕 -->
@@ -412,38 +377,16 @@
 (function() {
     'use strict';
     
-    // PWA 安裝提示
-    let deferredPrompt;
-    const installPrompt = document.getElementById('installPrompt');
-    const installBtn = document.getElementById('installBtn');
-    const dismissBtn = document.getElementById('dismissBtn');
-    
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        installPrompt.classList.add('show');
-    });
-    
-    installBtn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response: ${outcome}`);
-            deferredPrompt = null;
-            installPrompt.classList.remove('show');
-        }
-    });
-    
-    dismissBtn.addEventListener('click', () => {
-        installPrompt.classList.remove('show');
-    });
-    
-    // 註冊 Service Worker
+    // 註冊 Service Worker (選用，可移除如果不需要離線功能)
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
+            const swPath = window.location.pathname.includes('.github.io') 
+                ? `${window.location.pathname.split('/')[1] ? '/' + window.location.pathname.split('/')[1] : ''}/sw.js`
+                : '/sw.js';
+            
+            navigator.serviceWorker.register(swPath)
                 .then(reg => console.log('Service Worker registered'))
-                .catch(err => console.log('Service Worker registration failed:', err));
+                .catch(err => console.log('Service Worker not available'));
         });
     }
     
