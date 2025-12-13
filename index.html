@@ -10,7 +10,8 @@
     <meta name="apple-mobile-web-app-title" content="投資看板">
     
     <title>個人股票損益管理</title>
-    <link rel="manifest" href="/stock-dashboard/manifest.json">
+    <!-- 暫時移除 manifest，避免 PWA 路徑問題 -->
+    <!-- <link rel="manifest" href="/stock-dashboard/manifest.json"> -->
     <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -201,8 +202,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                         <path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.636c0 1.64-.42 3.17-1.15 4.51a9.03 9.03 0 0 1-3.14 3.29 8.78 8.78 0 0 1-4.42 1.18A9 9 0 1 1 12 3.48a8.93 8.93 0 0 1 2.96 2.19l-3.02 2.9a5.37 5.37 0 0 0-3.94-1.69 5.52 5.52 0 1 0 3.94 9.4 4.48 4.48 0 0 0 2.93-2.96H8.03v-3.8h7.52z"/>
                     </svg>
-                    <span class="d-none d-sm-inline ms-1">Google 登入</span>
-                    <span class="d-inline d-sm-none ms-1">登入</span>
+                    <span class="ms-1">Google 登入</span>
                 </button>
 
                 <button id="btnSignOut" class="btn btn-secondary btn-sm" style="display:none;">
@@ -210,7 +210,7 @@
                 </button>
                 
                 <button id="btnUpdatePrice" class="btn btn-primary btn-sm">
-                    🔄 <span class="d-none d-sm-inline">更新</span>
+                    🔄 更新現價
                 </button>
             </div>
         </div>
@@ -377,14 +377,8 @@
 (function() {
     'use strict';
     
-    // 註冊 Service Worker (PWA 離線功能)
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/stock-dashboard/sw.js')
-                .then(reg => console.log('Service Worker registered'))
-                .catch(err => console.log('Service Worker not available:', err));
-        });
-    }
+    // Service Worker 已暫時移除，避免路徑問題
+    // 手機仍可使用「加入主畫面」功能
     
     const firebaseConfig = {
       apiKey: "AIzaSyDqE-QYqXgZ1xZ_oKIIGIypDzB4iKIvwCk",
@@ -836,11 +830,12 @@
 
     document.getElementById('btnUpdatePrice').addEventListener('click', function() {
         const btn = this;
-        btn.innerHTML = '⏳';
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ 更新中...';
         btn.classList.add('loading');
 
         autoUpdatePrices().then(() => {
-            btn.innerHTML = '🔄 <span class="d-none d-sm-inline">更新</span>';
+            btn.innerHTML = originalText;
             btn.classList.remove('loading');
         });
     });
