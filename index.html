@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#667eea">
     <meta name="description" content="個人股票投資管理系統，支援離線使用">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="投資看板">
-    
     <title>Finyx - 個人股票投資管理</title>
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icon-192.png">
@@ -41,9 +37,7 @@
             transition: transform 0.2s;
         }
         
-        .stat-card:active {
-            transform: scale(0.98);
-        }
+        .stat-card:active { transform: scale(0.98); }
         
         .text-up { color: var(--danger-color) !important; font-weight: bold !important; }
         .text-down { color: var(--success-color) !important; font-weight: bold !important; }
@@ -72,75 +66,21 @@
         
         .loading { opacity: 0.7; pointer-events: none; }
         
-        /* 頂部按鈕區優化 */
-        .header-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            width: 100%;
-        }
+        .header-actions { display: flex; flex-direction: column; gap: 0.5rem; width: 100%; }
+        .user-section { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; }
+        .user-info { font-size: 0.8rem; color: #6c757d; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         
-        .user-section {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            width: 100%;
-        }
+        .btn-group-actions { display: flex; gap: 0.5rem; width: 100%; }
+        .btn-group-actions .btn { flex: 1; font-size: 0.875rem; padding: 0.5rem 0.75rem; white-space: nowrap; }
         
-        .user-info {
-            font-size: 0.8rem;
-            color: #6c757d;
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        
-        .btn-group-actions {
-            display: flex;
-            gap: 0.5rem;
-            width: 100%;
-        }
-        
-        .btn-group-actions .btn {
-            flex: 1;
-            font-size: 0.875rem;
-            padding: 0.5rem 0.75rem;
-            white-space: nowrap;
-        }
-        
-        /* PWA 安裝提示已移除 */
-        
-        /* 平板以上設備 */
         @media (min-width: 768px) {
-            .header-actions {
-                flex-direction: row;
-                align-items: center;
-                justify-content: flex-end;
-                width: auto;
-            }
-            
-            .user-section {
-                width: auto;
-                flex-direction: row;
-            }
-            
-            .btn-group-actions {
-                width: auto;
-            }
-            
-            .btn-group-actions .btn {
-                flex: 0 0 auto;
-            }
-            
-            .user-info {
-                flex: 0 0 auto;
-            }
+            .header-actions { flex-direction: row; align-items: center; justify-content: flex-end; width: auto; }
+            .user-section { width: auto; flex-direction: row; }
+            .btn-group-actions { width: auto; }
+            .btn-group-actions .btn { flex: 0 0 auto; }
+            .user-info { flex: 0 0 auto; }
         }
         
-        /* 手機優化 */
         @media (max-width: 576px) {
             .container { padding-left: 0.75rem; padding-right: 0.75rem; }
             h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
@@ -148,45 +88,30 @@
             .stat-card h5 { font-size: 0.85rem; }
             .card-header { font-size: 0.9rem; padding: 0.75rem 1rem; }
             .table { font-size: 0.85rem; }
-            
-            /* 確保按鈕對齊 */
-            .btn-group-actions {
-                flex-direction: column;
-            }
-            
-            .btn-group-actions .btn {
-                width: 100%;
-            }
+            .btn-group-actions { flex-direction: column; }
+            .btn-group-actions .btn { width: 100%; }
         }
         
-        /* 表格優化 */
-        .table-responsive {
-            border-radius: 8px;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
+        .table-responsive { border-radius: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         
-        /* 卡片動畫 */
-        .card {
-            animation: fadeIn 0.3s ease;
+        .card { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 更新閃爍動畫 */
+        @keyframes flash-bg {
+            0% { background-color: rgba(255, 243, 205, 0.8); }
+            100% { background-color: transparent; }
         }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .row-updated { animation: flash-bg 1.5s ease-out; }
     </style>
 </head>
 <body>
 
-<!-- PWA 安裝提示已移除 -->
-
 <div class="container py-3">
-    <!-- 頂部標題與按鈕 -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
         <div class="flex-shrink-0">
             <h2 class="mb-1 d-flex align-items-center gap-2">
-                <img src="./icon-192.png" alt="Finyx" style="width: 40px; height: 40px; border-radius: 8px;">
+                <img src="./icon-192.png" alt="Finyx" style="width: 40px; height: 40px; border-radius: 8px;" onerror="this.style.display='none'">
                 Finyx
             </h2>
             <div class="status-bar">
@@ -219,7 +144,6 @@
         </div>
     </div>
 
-    <!-- 統計卡片 -->
     <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
             <div class="card stat-card">
@@ -251,7 +175,6 @@
         </div>
     </div>
 
-    <!-- 新增交易表單 -->
     <div class="card">
         <div class="card-header bg-dark text-white">
             ➕ 新增交易
@@ -294,7 +217,6 @@
         </div>
     </div>
 
-    <!-- 持倉明細 -->
     <div class="card">
         <div class="card-header">📊 目前持倉明細</div>
         <div class="card-body p-0">
@@ -321,7 +243,6 @@
         </div>
     </div>
 
-    <!-- 平倉明細 -->
     <div class="card">
         <div class="card-header">💸 平倉明細 (已實現損益)</div>
         <div class="card-body p-0">
@@ -345,7 +266,6 @@
         </div>
     </div>
     
-    <!-- 歷史紀錄 -->
     <div class="card">
         <div class="card-header">📝 歷史紀錄</div>
         <div class="card-body p-0">
@@ -371,7 +291,6 @@
     </div>
 </div>
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -380,7 +299,6 @@
 (function() {
     'use strict';
     
-    // 註冊 Service Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
@@ -565,65 +483,125 @@
         return { holdings, closedPositions, totalRealized, totalDividends, symbolDividends };
     }
 
+    // === 新增：陣列分塊工具 ===
+    function chunkArray(myArray, chunk_size){
+        let results = [];
+        let arr = [...myArray]; // 複製以免修改原陣列
+        while (arr.length) {
+            results.push(arr.splice(0, chunk_size));
+        }
+        return results;
+    }
+
+    // === 優化：更新狀態顯示 ===
+    function updateStatusMessage(success, total) {
+        const status = document.getElementById('autoUpdateStatus');
+        const now = new Date();
+        const time = now.toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
+        
+        if(success !== undefined) {
+             status.innerText = `更新: ${time} (成功 ${success}/${total})`;
+             setTimeout(() => status.innerText = `更新: ${time}`, 3000);
+        } else {
+             status.innerText = `更新: ${time}`;
+        }
+    }
+
+    // === 優化：自動更新股價 (包含分批處理、防快取、邏輯增強) ===
     async function autoUpdatePrices() {
+        const statusEl = document.getElementById('autoUpdateStatus');
+        
         if (!currentUID) {
-            document.getElementById('autoUpdateStatus').innerText = '請登入以更新股價';
+            statusEl.innerText = '請登入以更新股價';
             return;
         }
 
         const { holdings } = calculateHoldingsAndClosed();
-        const symbols = Object.keys(holdings);
+        let symbols = Object.keys(holdings);
 
         if (symbols.length === 0) {
-            document.getElementById('autoUpdateStatus').innerText = '無持倉,無需更新';
+            statusEl.innerText = '無持倉,無需更新';
             return;
         }
 
-        let query = symbols.map(s => `tse_${s}.tw|otc_${s}.tw`).join('|');
-        const timeStamp = new Date().getTime();
-        const targetUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${query}&json=1&delay=0&_=${timeStamp}`;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+        statusEl.innerText = `準備更新 ${symbols.length} 檔股價...`;
+
+        // 分批：每批 15 檔
+        const batches = chunkArray(symbols, 15);
+        let updates = {};
+        let successCount = 0;
+        let failCount = 0;
 
         try {
-            const res = await fetch(proxyUrl);
-            const data = await res.json();
+            await Promise.all(batches.map(async (batchSymbols) => {
+                let query = batchSymbols.map(s => `tse_${s}.tw|otc_${s}.tw`).join('|');
+                const timeStamp = new Date().getTime();
+                
+                // TWSE API
+                const targetUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${query}&json=1&delay=0&_=${timeStamp}`;
+                
+                // Proxy + Cache Buster
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&cb=${timeStamp}`;
 
-            if (data.msgArray && data.msgArray.length > 0) {
-                let updates = {};
-                data.msgArray.forEach(stk => {
-                    let sym = stk.c;
-                    let price = stk.z;
-                    let source = "即時";
+                try {
+                    const res = await fetch(proxyUrl);
+                    if (!res.ok) throw new Error('Network error');
+                    
+                    const data = await res.json();
 
-                    if (price === '-' || !price) {
-                        if (stk.o && stk.o !== '-') { price = stk.o; source = "開盤"; }
-                        else if (stk.y && stk.y !== '-') { price = stk.y; source = "昨收"; }
-                        else if (stk.b && stk.b.split('_')[0] !== '-') { price = stk.b.split('_')[0]; source = "買進"; }
+                    if (data.msgArray && data.msgArray.length > 0) {
+                        data.msgArray.forEach(stk => {
+                            let sym = stk.c;
+                            let price = stk.z; 
+                            let source = "即時";
+
+                            // 處理無成交價情況
+                            if (price === '-' || !price) {
+                                let bestBid = stk.b ? stk.b.split('_')[0] : '-';
+                                let bestAsk = stk.a ? stk.a.split('_')[0] : '-';
+
+                                if (stk.o && stk.o !== '-') { 
+                                    price = stk.o; 
+                                    source = "開盤"; 
+                                } else if (bestBid !== '-' && bestBid !== '0') {
+                                    price = bestBid;
+                                    source = "委買"; 
+                                } else if (bestAsk !== '-' && bestAsk !== '0') {
+                                    price = bestAsk;
+                                    source = "委賣"; 
+                                } else if (stk.y && stk.y !== '-') { 
+                                    price = stk.y; 
+                                    source = "昨收"; 
+                                }
+                            }
+
+                            if (sym && price && price !== '-' && !isNaN(parseFloat(price))) {
+                                updates[sym] = { 
+                                    val: parseFloat(price), 
+                                    src: source, 
+                                    time: stk.t || new Date().toLocaleTimeString('zh-TW')
+                                };
+                                successCount++;
+                            }
+                        });
                     }
+                } catch (err) {
+                    console.error('Batch fetch error:', err);
+                    failCount++;
+                }
+            }));
 
-                    if (sym && price && price !== '-') {
-                        updates[sym] = { 
-                            val: parseFloat(price), 
-                            src: source, 
-                            time: stk.t || '' 
-                        };
-                    }
-                });
-
-                pricesRef.update(updates);
-                updateStatusMessage();
+            if (Object.keys(updates).length > 0) {
+                await pricesRef.update(updates);
+                updateStatusMessage(successCount, symbols.length);
+            } else {
+                statusEl.innerText = '更新完成 (無變動)';
             }
-        } catch (err) {
-            console.error('更新失敗:', err);
-            document.getElementById('autoUpdateStatus').innerText = '更新失敗';
-        }
-    }
 
-    function updateStatusMessage() {
-        const status = document.getElementById('autoUpdateStatus');
-        const now = new Date();
-        const time = now.toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
-        status.innerText = `更新: ${time}`;
+        } catch (err) {
+            console.error('Global update error:', err);
+            statusEl.innerText = '更新發生錯誤';
+        }
     }
 
     window.manualPrice = function(sym, val) {
@@ -676,7 +654,7 @@
                 let divPlusCls = divPlusUnrl >= 0 ? 'text-up' : 'text-down';
 
                 let tr = `
-                    <tr>
+                    <tr class="fade-in">
                         <td><strong>${s}</strong></td>
                         <td>${fmtNum(h.qty)}</td>
                         <td>${fmtNum(avg.toFixed(2))}</td>
